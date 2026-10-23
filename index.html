@@ -84,6 +84,10 @@
   .btn:disabled { opacity:.6; cursor:wait; }
   .note { margin:10px 0 0; font-size:12px; line-height:1.6; color:var(--muted); }
   .locked { opacity:.4; pointer-events:none; }
+  #noticeBackdrop { position:fixed; inset:0; z-index:10000; display:grid; place-items:center; background:rgba(40,36,60,.35); }
+  #noticeBackdrop[hidden] { display:none; }
+  .notice { width:min(360px,calc(100vw - 40px)); background:#fff; border-radius:22px; padding:24px 22px 18px; box-shadow:var(--shadow); text-align:center; }
+  .notice p { margin:0 0 18px; font-size:15px; font-weight:600; line-height:1.55; color:var(--strong); }
   details { font-size:13px; color:var(--muted); line-height:1.65; }
   summary { cursor:pointer; color:var(--ink); font-weight:600; }
 
@@ -172,13 +176,13 @@
             <input type="text" id="author" value="your name" maxlength="40" aria-label="제작자 이름" placeholder="제작자 이름">
           </div>
         </div>
-        <div class="card"><h3>표시</h3><div class="chips" id="toggles2"></div></div>
+        <div class="card"><h3>설정</h3><div class="chips" id="toggles2"></div></div>
         <div class="card"><details>
           <summary>Mate Engine에 적용하는 방법</summary>
           <ol style="padding-left:18px;margin:10px 0 0">
             <li>내보낸 .vrm 파일을 저장합니다.</li>
             <li>Mate Engine에서 아바타(모델) 불러오기 메뉴로 .vrm을 선택합니다. 메뉴 이름은 버전에 따라 다를 수 있습니다.</li>
-            <li>표정 애니메이션은 포함되어 있지 않습니다.</li>
+            <li>표정 애니메이션은 설정에서 페이스 애니를 켠 경우에만 포함됩니다.</li>
           </ol>
         </details></div>
       </section>
@@ -474,6 +478,7 @@ const freshState = () => {
     ribbons: { neck: false }, ribbonColor: '#e0507a',
     headOrns: [], headOrnColors: ['#f2c14e', '#e0507a'], backOrn: 'none', backOrnColor: '#ffffff',
     eyeFam: 'moe', eyeVar: 'normal', lashTop: 0, lashUnder: 0, mouth: 'closed',
+    faceAnim: false,       // 페이스 애니(눈 깜빡임 표정을 VRM에 넣기). 기본 OFF
     earInner: true,        // 귀 안쪽 색 켜기/끄기
     customFace: null,      // 업로드한 얼굴 그림 { name, pm }. 있으면 눈·입·눈 색 설정은 잠긴다
     poly: 1,
@@ -1273,7 +1278,9 @@ function compile(parts, s) {
   const pos = [], nor = [], uv = [], sIdx = [], sW = [];
   const a = new V3(), b = new V3(), c = new V3(), fn = new V3(), cen = new V3();
   const sa = new V3(), sb = new V3(), sc = new V3();
+  let headEnd = 0;   // 머리(첫 파츠)가 차지하는 정점 수. 페이스 애니용으로 머리만 따로 묶을 때 쓴다
   for (const part of parts) {
+    if (part !== parts[0] && !headEnd) headEnd = pos.length / 3;
     const g = part.geo, pa = g.attributes.position, na = g.attributes.normal, ua = g.attributes.uv;
     g.computeBoundingBox();
     const bb = g.boundingBox, h = bb.max.y - bb.min.y;
@@ -1317,7 +1324,7 @@ function compile(parts, s) {
       }
     }
   }
-  return { pos, nor, uv, sIdx, sW, palList };
+  return { pos, nor, uv, sIdx, sW, palList, headVerts: headEnd };
 }
 
 function makeAtlas(s, palList) {
@@ -1349,9 +1356,20 @@ function makeSkeleton() {
 }
 
 // viewer=true: 토온 재질 + 외곽선, false: 내보내기용(표준 재질, MToon은 후처리로 부착)
+// 페이스 애니를 쓸 수 없는 경우의 안내 문구(쓸 수 있으면 null)
+function faceAnimBlock(s) {
+  if (s.eyeFam === 'closed') return '감은눈은 페이스 애니를 설정할 수 없습니다.';
+  if (s.customFace) return '직접 업로드한 얼굴은 페이스 애니를 설정할 수 없습니다.';
+  return null;
+}
+// 감았을 때의 얼굴: 고른 눈에 맞는 감은눈(기본눈·모에눈 기본 → 기본, 화남/쳐짐은 같은 기울기) + 윗속눈썹 그대로
+function closedFaceState(s) {
+  return { ...s, eyeFam: 'closed', eyeVar: s.eyeFam === 'moe' && s.eyeVar !== 'normal' ? s.eyeVar : 'normal', lashUnder: 0, eye: s.eyeFam === 'moe' ? '#2b2226' : s.eye };
+}
 function makeCharacter(s, viewer = false) {
   const parts = buildParts(s);
   const d = compile(parts, s);
+  const anim = !viewer && s.faceAnim && !faceAnimBlock(s);
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(d.pos, 3));
   geo.setAttribute('normal', new THREE.Float32BufferAttribute(d.nor, 3));
@@ -1360,6 +1378,28 @@ function makeCharacter(s, viewer = false) {
   geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(d.sW, 4));
   geo.computeBoundingSphere();
   const tex = makeAtlas(s, d.palList);
+
+  // 페이스 애니: 머리를 별도 재질로 나눈다. 머리 텍스처는 위쪽 절반=뜬 눈, 아래쪽 절반=감은 눈(blink 표정이 세로로 0.5 옮겨 읽는다)
+  let headTex = null, headMat = null;
+  if (anim) {
+    const n = d.pos.length / 3, idx = new Uint32Array(n);
+    for (let i = 0; i < n; i++) idx[i] = i;
+    geo.setIndex(new THREE.BufferAttribute(idx, 1));
+    geo.addGroup(0, d.headVerts, 0); geo.addGroup(d.headVerts, n - d.headVerts, 1);
+    const cv = document.createElement('canvas'); cv.width = cv.height = AW;
+    const cx = cv.getContext('2d');
+    cx.putImageData(paintHead(s), 0, 0);
+    cx.putImageData(paintHead(closedFaceState(s)), 0, HEADR.h);
+    headTex = new THREE.CanvasTexture(cv);
+    headTex.flipY = false; headTex.generateMipmaps = false;
+    headTex.magFilter = THREE.LinearFilter; headTex.minFilter = THREE.LinearFilter;
+    headTex.colorSpace = THREE.SRGBColorSpace; headTex.name = 'headFace';
+    headMat = new THREE.MeshStandardMaterial({ map: headTex, roughness: 1, metalness: 0 });
+    headMat.name = 'LowPolyHead';
+  }
+
+  // 미리보기 깜빡임용: 감은 눈 얼굴이 들어간 아틀라스를 하나 더 만들어 둔다(페이스 애니 ON일 때만)
+  const closedTex = viewer && s.faceAnim && !faceAnimBlock(s) ? makeAtlas(closedFaceState(s), d.palList) : null;
 
   let mat;
   if (viewer) {
@@ -1372,7 +1412,7 @@ function makeCharacter(s, viewer = false) {
   mat.name = 'LowPolyAnimal';
 
   const { bones, list } = makeSkeleton();
-  const mesh = new THREE.SkinnedMesh(geo, mat);
+  const mesh = new THREE.SkinnedMesh(geo, anim ? [headMat, mat] : mat);
   mesh.name = 'Body'; mesh.frustumCulled = false;
   const group = new THREE.Group();
   group.name = 'LowPolyAnimal';
@@ -1393,9 +1433,9 @@ function makeCharacter(s, viewer = false) {
     om.frustumCulled = false; om.bind(skeleton);
     group.add(om); extra.push(og, om.material);
   }
-  return { group, geo, tex, mat, bones, extra, triangles: d.pos.length / 9 };
+  return { group, geo, tex, mat, bones, extra, triangles: d.pos.length / 9, headTex, headMat, closedTex };
 }
-const disposeChar = ch => { ch.geo.dispose(); ch.tex.dispose(); ch.mat.dispose(); ch.extra.forEach(x => x.dispose()); };
+const disposeChar = ch => { ch.geo.dispose(); ch.tex.dispose(); ch.mat.dispose(); if (ch.closedTex) ch.closedTex.dispose(); if (ch.headTex) { ch.headTex.dispose(); ch.headMat.dispose(); } ch.extra.forEach(x => x.dispose()); };
 
 /* ------------------------------------------------------------ VRM 내보내기 (MToon) */
 function toVRM(glb, meta, s) {
@@ -1414,18 +1454,24 @@ function toVRM(glb, meta, s) {
   const humanBones = {};
   for (const [name] of HUMAN_BONES) humanBones[name] = node(name);
 
-  const mat = json.materials[0];
-  const texIdx = mat.pbrMetallicRoughness.baseColorTexture.index;
-  mat.extensions = mat.extensions || {};
-  mat.extensions.VRMC_materials_mtoon = {
-    specVersion: '1.0',
-    transparentWithZWrite: false, renderQueueOffsetNumber: 0,
-    shadeColorFactor: [0.80, 0.76, 0.86], shadeMultiplyTexture: { index: texIdx },
-    shadingShiftFactor: -0.1, shadingToonyFactor: 0.85, giEqualizationFactor: 0.9,
-    ...(s.outline
-      ? { outlineWidthMode: 'worldCoordinates', outlineWidthFactor: 0.0042, outlineColorFactor: [0.17, 0.125, 0.14], outlineLightingMixFactor: 0 }
-      : { outlineWidthMode: 'none' }),
-  };
+  for (const mat of json.materials) {   // 페이스 애니를 켜면 재질이 둘(머리, 몸)이다
+    const texIdx = mat.pbrMetallicRoughness.baseColorTexture.index;
+    mat.extensions = mat.extensions || {};
+    mat.extensions.VRMC_materials_mtoon = {
+      specVersion: '1.0',
+      transparentWithZWrite: false, renderQueueOffsetNumber: 0,
+      shadeColorFactor: [0.80, 0.76, 0.86], shadeMultiplyTexture: { index: texIdx },
+      shadingShiftFactor: -0.1, shadingToonyFactor: 0.85, giEqualizationFactor: 0.9,
+      ...(s.outline
+        ? { outlineWidthMode: 'worldCoordinates', outlineWidthFactor: 0.0042, outlineColorFactor: [0.17, 0.125, 0.14], outlineLightingMixFactor: 0 }
+        : { outlineWidthMode: 'none' }),
+    };
+  }
+  // 페이스 애니: blink 표정 = 머리 텍스처를 세로로 절반 옮겨 읽어 감은 눈 얼굴로 바꾼다(0/1 두 상태만 쓰는 이진 표정)
+  const headMatIdx = json.materials.findIndex(m => m.name === 'LowPolyHead');
+  const expressions = headMatIdx >= 0
+    ? { preset: { blink: { isBinary: true, textureTransformBinds: [{ material: headMatIdx, scale: [1, 1], offset: [0, 0.5] }] } } }
+    : null;
 
   json.extensionsUsed = Array.from(new Set([...(json.extensionsUsed || []), 'VRMC_vrm', 'VRMC_materials_mtoon']));
   json.extensions = json.extensions || {};
@@ -1440,6 +1486,7 @@ function toVRM(glb, meta, s) {
       allowPoliticalOrReligiousUsage: false, allowAntisocialOrHateUsage: false,
     },
     humanoid: { humanBones },
+    ...(expressions ? { expressions } : {}),
   };
 
   const jsonBytes = new TextEncoder().encode(JSON.stringify(json));
@@ -1539,7 +1586,16 @@ function resize() {
 }
 new ResizeObserver(resize).observe(view);
 resize();
-renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+// 페이스 애니 미리보기: ON이면 3.5초마다 0.16초 동안 감은 눈 얼굴로 바꿔 깜빡임을 보여 준다(내보낸 VRM의 blink 표정과 같은 두 얼굴)
+const BLINK_EVERY = 3500, BLINK_FOR = 160;
+renderer.setAnimationLoop(() => {
+  controls.update();
+  if (current) {
+    const want = current.closedTex && performance.now() % BLINK_EVERY < BLINK_FOR ? current.closedTex : current.tex;
+    if (current.mat.map !== want) current.mat.map = want;
+  }
+  renderer.render(scene, camera);
+});
 
 /* ------------------------------------------------------------ UI */
 const $ = id => document.getElementById(id);
@@ -1619,12 +1675,18 @@ function renderUI() {
   };
   ps.appendChild(sb);
 
-  for (const [elId, list] of [['toggles', [['blush', '볼터치'], ['shirtOn', '옷 입히기']]], ['toggles2', [['outline', '외곽선']]]]) {
+  for (const [elId, list] of [['toggles', [['blush', '볼터치'], ['shirtOn', '옷 입히기']]], ['toggles2', [['outline', '외곽선'], ['faceAnim', '페이스 애니']]]]) {
     const te = $(elId); te.innerHTML = '';
     for (const [key, label] of list) {
       const b = document.createElement('button');
       b.className = 'chip' + (state[key] ? ' on' : ''); b.textContent = label + (state[key] ? ' ON' : ' OFF');
-      b.onclick = () => { state[key] = !state[key]; redraw(); };
+      b.onclick = () => {
+        if (key === 'faceAnim' && !state.faceAnim) {   // 켜려는데 쓸 수 없는 눈이면 안내창만 띄우고 켜지 않는다
+          const msg = faceAnimBlock(state);
+          if (msg) { showNotice(msg); return; }
+        }
+        state[key] = !state[key]; redraw();
+      };
       te.appendChild(b);
     }
   }
@@ -1655,7 +1717,10 @@ function renderUI() {
   $('hc2wrap').hidden = !two;
   colorRow('c-headOrnColor', () => state.headOrnColors[0], v => { state.headOrnColors[0] = v; }, SW.headOrnColor);
   colorRow('c-headOrnColor2', () => state.headOrnColors[1], v => { state.headOrnColors[1] = v; }, SW.headOrnColor);
-  chipRow('eyeFam', EYE_FAMS, id => state.eyeFam === id, id => { state.eyeFam = id; state.eyeVar = EYE_VARS[id][0][0]; });
+  chipRow('eyeFam', EYE_FAMS, id => state.eyeFam === id, id => {
+    state.eyeFam = id; state.eyeVar = EYE_VARS[id][0][0];
+    if (id === 'closed' && state.faceAnim) { state.faceAnim = false; showNotice('감은눈은 페이스 애니를 설정할 수 없습니다. 페이스 애니를 껐습니다.'); }
+  });
   chipRow('eyeVar', EYE_VARS[state.eyeFam], id => state.eyeVar === id, id => { state.eyeVar = id; });
   chipRow('lashTop', LASH_OPTS, id => state.lashTop === id, id => { state.lashTop = id; });
   chipRow('lashUnder', LASH_OPTS, id => state.lashUnder === id, id => { state.lashUnder = id; });
@@ -1677,6 +1742,17 @@ function renderUI() {
   $('faceUp').classList.toggle('on', cf);
 }
 const innerCache = {};
+// 안내창(확인 버튼 하나). 같은 창을 재사용한다.
+function showNotice(msg) {
+  let bd = document.getElementById('noticeBackdrop');
+  if (!bd) {
+    bd = document.createElement('div'); bd.id = 'noticeBackdrop'; bd.setAttribute('role', 'alertdialog');
+    bd.innerHTML = '<div class="notice"><p id="noticeMsg"></p><button class="btn main" id="noticeOk" style="width:100%">확인</button></div>';
+    document.body.appendChild(bd);
+    bd.addEventListener('click', e => { if (e.target === bd || e.target.id === 'noticeOk') bd.hidden = true; });
+  }
+  $('noticeMsg').textContent = msg; bd.hidden = false; $('noticeOk').focus();
+}
 // 템플릿: 현재 설정과 상관없이 정해진 눈(기본눈 동그라미 / 모에눈 기본) + 3자입을 투명 배경으로 내보낸다
 function downloadTemplate(kind) {
   const t = { ...state, customFace: null, eye: '#2a2226', mouth: 'omega', lashTop: 0, lashUnder: 0, eyeFam: kind, eyeVar: kind === 'basic' ? 'round' : 'normal' };
@@ -1704,6 +1780,7 @@ $('faceFile').onchange = async e => {
     const d = oc.getImageData(0, 0, 512, 256).data, pm = new Float32Array(d.length);
     for (let i = 0; i < d.length; i += 4) { const a = d[i + 3] / 255; pm[i] = d[i] * a; pm[i + 1] = d[i + 1] * a; pm[i + 2] = d[i + 2] * a; pm[i + 3] = a; }
     state.customFace = { name: f.name, pm };
+    if (state.faceAnim) { state.faceAnim = false; showNotice('직접 업로드한 얼굴은 페이스 애니를 설정할 수 없습니다. 페이스 애니를 껐습니다.'); }
     $('status').textContent = `내 얼굴 적용: ${f.name}` + (Math.abs(bmp.width / bmp.height - 2) > 0.02 ? '\n※ 가로:세로가 2:1이 아니어서 그림이 늘어나 보일 수 있어요.' : '');
     redraw();
   } catch (err) { $('status').textContent = '그림을 읽지 못했어요. PNG·WebP·JPG 파일을 올려 주세요.'; }
@@ -1769,7 +1846,7 @@ function checkAttach(s) {
     return { kind: p.kind, ...p.geo.userData.attach, headMin: p.kind === 'tail' ? headMin : null, torsoMin: p.kind === 'tail' ? torsoMin : null, minY };
   });
 }
-window.__animal = { resetState, buildParts, paintHead, HEAD_DIR, state,applySpecies, redraw, rebuild, buildVRMBuffer, makeCharacter, checkAttach, buildParts, headF, camera, controls, THREE, info: () => ({ triangles: current.triangles }) };
+window.__animal = { resetState, buildParts, paintHead, HEAD_DIR, state,applySpecies, redraw, rebuild, buildVRMBuffer, makeCharacter, checkAttach, buildParts, headF, camera, controls, THREE, info: () => ({ triangles: current.triangles, hasClosed: !!current.closedTex, showingClosed: !!current.closedTex && current.mat.map === current.closedTex }) };
 </script>
 </body>
 </html>
