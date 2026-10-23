@@ -1,0 +1,1768 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>로우폴리 동물 VRM 메이커</title>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+    "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<style>
+  /* 디자인 토큰: RewampUI 스타일 — 밝은 바탕, 라벤더 포인트, 큰 둥근 모서리, 알약형 버튼, 가벼운 그림자 */
+  :root {
+    --bg:#f6f6f8; --card:#ffffff; --ink:#4a4a52; --strong:#2b2b32; --muted:#9a9aa4; --line:rgba(40,40,60,.09);
+    --soft:#f1f1f5; --accent:#8f7bc2; --accent-ink:#fff; --accent-strong:#6f5ba3; --accent-soft:#eee9f8; --dark:#62626a;
+    --shadow:0 8px 28px rgba(50,40,80,.07); --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif; }
+  button { font-family:inherit; }
+  #app { display:grid; grid-template-columns:minmax(0,1fr) 580px; height:100%; }
+
+  /* 미리보기 */
+  #view { position:relative; min-height:320px; background:radial-gradient(120% 90% at 50% 20%, #ffffff 0%, #eeedf3 100%); overflow:hidden; }
+  #view canvas { display:block; width:100%; height:100%; }
+  #hint { position:absolute; left:20px; top:16px; font:11px var(--mono); color:var(--muted); pointer-events:none; }
+  #viewbar { position:absolute; left:50%; bottom:18px; transform:translateX(-50%); display:flex; gap:6px; padding:6px; background:rgba(255,255,255,.88); backdrop-filter:blur(8px); border:1px solid var(--line); border-radius:999px; box-shadow:var(--shadow); }
+  .pill { border:0; background:transparent; color:var(--ink); font-size:13px; font-weight:600; padding:8px 14px; border-radius:999px; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:6px; }
+  .pill:hover { background:var(--soft); }
+  .pill.on, .pill:has(input:checked) { background:var(--accent-soft); color:var(--accent-strong); }
+  .pill input { display:none; }
+
+  /* 설정 패널 */
+  #panel { display:flex; flex-direction:column; height:100%; background:var(--bg); border-left:1px solid var(--line); min-width:0; }
+  .head { padding:18px 22px 10px; display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
+  .brand { font-size:19px; font-weight:800; color:var(--strong); letter-spacing:-.01em; }
+  .brand span { color:var(--accent); }
+  .tag { font:11px var(--mono); color:var(--muted); }
+  .tabs { display:grid; grid-template-columns:repeat(6,1fr); gap:4px; margin:6px 22px 4px; padding:4px; background:#ececf1; border-radius:999px; }
+  .tab { border:0; background:transparent; padding:10px 4px; border-radius:999px; font-size:13px; font-weight:700; color:var(--muted); cursor:pointer; }
+  .tab:hover { color:var(--ink); }
+  .tab.on { background:#fff; color:var(--strong); box-shadow:0 2px 8px rgba(50,40,80,.12); }
+  .panes { flex:1; min-height:0; overflow-y:auto; padding:14px 22px 18px; }
+  .pane { display:none; flex-direction:column; gap:12px; }
+  .pane.on { display:flex; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:22px; padding:16px 16px 18px; box-shadow:var(--shadow); min-width:0; }
+  .card h3 { margin:0 0 12px; font:600 11px var(--mono); letter-spacing:.06em; color:var(--muted); text-transform:uppercase; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .card h4 { margin:14px 0 8px; font:600 11px var(--mono); letter-spacing:.06em; color:var(--muted); }
+  .card small { color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0; font-family:inherit; }
+
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { border:1px solid transparent; background:var(--soft); color:var(--ink); border-radius:999px; padding:9px 15px; font-size:13px; font-weight:600; cursor:pointer; transition:background .15s, color .15s; }
+  .chip:hover { background:#e8e8ee; }
+  .chip.on { background:var(--accent); color:var(--accent-ink); }
+  .species .chip { flex:1 1 calc(25% - 6px); text-align:center; padding:12px 6px; border-radius:16px; }
+  .colors { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .sw { width:30px; height:30px; border-radius:50%; border:1px solid rgba(0,0,0,.12); cursor:pointer; padding:0; transition:transform .12s; }
+  .sw:hover { transform:scale(1.08); }
+  .sw.on { outline:2px solid var(--accent); outline-offset:2px; }
+  input[type=color] { width:34px; height:34px; padding:0; border:1px solid var(--line); border-radius:50%; background:#fff; cursor:pointer; overflow:hidden; }
+  input[type=color]:disabled { opacity:.3; cursor:default; }
+  input[type=text] { width:100%; padding:11px 14px; border:1px solid var(--line); border-radius:14px; font-size:14px; background:#fff; color:var(--ink); }
+  input[type=text]:focus { outline:2px solid var(--accent-soft); border-color:var(--accent); }
+  .patgrid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .pat { display:flex; align-items:center; gap:8px; }
+  .pat .chip { flex:1; text-align:left; border-radius:16px; }
+  .fields { display:flex; flex-direction:column; gap:8px; }
+
+  /* 하단 고정 버튼 */
+  .actions { padding:12px 22px 18px; background:linear-gradient(180deg, rgba(246,246,248,0), var(--bg) 30%); }
+  #status { font:11px var(--mono); color:var(--muted); min-height:15px; margin-bottom:8px; white-space:pre-wrap; }
+  .btnrow { display:flex; gap:10px; }
+  .btn { border:0; border-radius:999px; padding:14px 20px; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; }
+  .btn.alt { flex:0 0 auto; background:var(--accent-soft); color:var(--accent-strong); }
+  .btn.main { flex:1; background:var(--dark); color:#fff; padding-right:10px; }
+  .btn.main i { width:30px; height:30px; border-radius:50%; background:var(--accent); display:grid; place-items:center; font-style:normal; font-size:15px; }
+  .btn:hover { filter:brightness(1.05); }
+  .btn:disabled { opacity:.6; cursor:wait; }
+  .note { margin:10px 0 0; font-size:12px; line-height:1.6; color:var(--muted); }
+  .locked { opacity:.4; pointer-events:none; }
+  details { font-size:13px; color:var(--muted); line-height:1.65; }
+  summary { cursor:pointer; color:var(--ink); font-weight:600; }
+
+  @media (max-width:980px) {
+    #app { grid-template-columns:1fr; grid-template-rows:56vh auto; height:auto; }
+    #panel { height:auto; border-left:0; border-top:1px solid var(--line); }
+    #view { height:56vh; }
+    .panes { overflow:visible; }
+    .tabs { margin-left:14px; margin-right:14px; }
+    .grid2 { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <main id="view">
+    <div id="hint">드래그: 회전 · 휠: 확대/축소</div>
+    <div id="viewbar">
+      <button class="pill" id="front-view">정면</button>
+      <button class="pill" id="back-view">뒷면</button>
+      <label class="pill"><input type="checkbox" id="spin"><span>자동 회전</span></label>
+      <button class="pill" id="pose">포즈 테스트: T 포즈</button>
+    </div>
+  </main>
+
+  <aside id="panel">
+    <div class="head"><div class="brand">로우폴리 동물 <span>VRM</span> 메이커</div><div class="tag">.vrm · Mate Engine</div></div>
+    <nav class="tabs" role="tablist" aria-label="설정 분야">
+      <button class="tab on" role="tab" data-tab="animal">동물</button>
+      <button class="tab" role="tab" data-tab="color">색상</button>
+      <button class="tab" role="tab" data-tab="pattern">무늬</button>
+      <button class="tab" role="tab" data-tab="deco">꾸미기</button>
+      <button class="tab" role="tab" data-tab="orn">장식</button>
+      <button class="tab" role="tab" data-tab="save">저장·설정</button>
+    </nav>
+
+    <div class="panes">
+      <section class="pane on" id="pane-animal">
+        <div class="card"><h3>동물</h3><div class="chips species" id="species"></div>
+          <div class="chips" id="earInnerWrap" style="margin-top:8px" hidden><button class="chip" id="earInner">귀 안쪽</button></div></div>
+        <div class="card" id="eyeCard"><h3>눈 모양</h3><div class="chips" id="eyeFam"></div><div class="chips" id="eyeVar" style="margin-top:8px"></div>
+          <h4>윗 속눈썹</h4><div class="chips" id="lashTop"></div>
+          <div id="lashUnderWrap"><h4>아래 속눈썹</h4><div class="chips" id="lashUnder"></div></div></div>
+        <div class="card" id="mouthCard"><h3>입 모양</h3><div class="chips" id="mouth"></div></div>
+        <div class="card" id="faceCard"><h3>얼굴 직접 업로드</h3>
+          <div class="chips"><button class="chip" id="tplBasic">템플릿:기본눈</button><button class="chip" id="tplMoe">템플릿:모에눈</button></div>
+          <div class="chips" style="margin-top:8px"><button class="chip" id="faceUp">얼굴 올리기</button><button class="chip" id="faceOff" hidden>내 얼굴 해제</button></div>
+          <input type="file" id="faceFile" accept="image/png,image/webp,image/jpeg" hidden>
+          <p id="faceNote" class="note">직접 그린 얼굴 업로드 기능, 반드시 템플릿을 다운 받아 규격에 맞게 그려주세요. 커스텀 얼굴 업로드시 색상 변경등 기본 커스텀 기능은 사용할 수 없습니다. 얇은 선으로 그리게 되면 뭉개질 수 있습니다.</p></div>
+        <div class="card"><h3>폴리곤</h3><div class="chips" id="poly"></div></div>
+      </section>
+
+      <section class="pane" id="pane-color">
+        <div class="card"><h3>몸 색</h3><div class="colors" id="c-body"></div></div>
+        <div class="card" id="eyeColorCard"><h3>눈 색</h3><div class="colors" id="c-eye"></div></div>
+      </section>
+
+      <section class="pane" id="pane-pattern">
+        <div class="card">
+          <h3>무늬 <small>여러 개 선택 · 각각 색 지정</small></h3>
+          <div class="patgrid" id="patterns"></div>
+          <h4>색 동기화</h4><div class="chips" id="patSync"></div>
+        </div>
+      </section>
+
+      <section class="pane" id="pane-deco">
+        <div class="grid2">
+          <div class="card"><h3>볼터치 · 의상</h3><div class="chips" id="toggles"></div><h4>의상 색</h4><div class="colors" id="c-shirt"></div></div>
+          <div class="card"><h3>점 <small>캐릭터 기준</small></h3><div class="chips" id="moles"></div><h4>점 색</h4><div class="colors" id="c-moleColor"></div></div>
+          <div class="card"><h3>안경</h3><div class="chips" id="glasses"></div><h4>안경 색</h4><div class="colors" id="c-glassesColor"></div></div>
+          <div class="card"><h3>리본</h3><div class="chips" id="ribbons"></div><h4>리본 색</h4><div class="colors" id="c-ribbonColor"></div></div>
+        </div>
+      </section>
+
+      <section class="pane" id="pane-orn">
+        <div class="card"><h3>머리장식 <small>최대 2개</small></h3><div class="chips" id="headOrn"></div>
+          <h4 id="hc1">장식 색</h4><div class="colors" id="c-headOrnColor"></div>
+          <div id="hc2wrap" hidden><h4 id="hc2">장식 색 2</h4><div class="colors" id="c-headOrnColor2"></div></div></div>
+        <div class="card"><h3>등 장식</h3><div class="chips" id="backOrn"></div><h4>장식 색</h4><div class="colors" id="c-backOrnColor"></div></div>
+      </section>
+
+      <section class="pane" id="pane-save">
+        <div class="card"><h3>모델 정보</h3>
+          <div class="fields">
+            <input type="text" id="mname" value="my mate" maxlength="40" aria-label="모델 이름" placeholder="모델 이름">
+            <input type="text" id="author" value="your name" maxlength="40" aria-label="제작자 이름" placeholder="제작자 이름">
+          </div>
+        </div>
+        <div class="card"><h3>표시</h3><div class="chips" id="toggles2"></div></div>
+        <div class="card"><details>
+          <summary>Mate Engine에 적용하는 방법</summary>
+          <ol style="padding-left:18px;margin:10px 0 0">
+            <li>내보낸 .vrm 파일을 저장합니다.</li>
+            <li>Mate Engine에서 아바타(모델) 불러오기 메뉴로 .vrm을 선택합니다. 메뉴 이름은 버전에 따라 다를 수 있습니다.</li>
+            <li>표정 애니메이션은 포함되어 있지 않습니다.</li>
+          </ol>
+        </details></div>
+      </section>
+    </div>
+
+    <div class="actions">
+      <div id="status"></div>
+      <div class="btnrow">
+        <button class="btn alt" id="rand">랜덤</button>
+        <button class="btn alt" id="reset">기본으로 되돌리기</button>
+        <button class="btn main" id="export">VRM 내보내기 <i aria-hidden="true">↓</i></button>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+/*!
+ * color-picker — shared Pickr/Monolith-style colour picker for the swoonqx maker sites.
+ * Ported from polaroid-maker so every maker site picks colours the same way:
+ * saturation/brightness field, hue bar, HEX input, EyeDropper, recent colours, Apply button.
+ *
+ * Usage:  ColorPicker.attach(document.getElementById('myColor'), { getLang: () => 'ko' });
+ * The <input type="color"> stays in the page as the swatch button; clicking it opens this sheet instead of the
+ * native dialog, and an 'input' event fires on every change (Esc / backdrop click restores the original colour).
+ * Languages: ko / en / ja / zh. Self-contained: injects its own CSS and markup.
+ */
+(function (root) {
+  'use strict';
+  const LANGS = ['ko', 'en', 'ja', 'zh'];
+  const STR = {
+    title: ['색상 선택', 'Choose Color', '色を選択', '选择颜色'],
+    apply: ['적용', 'Apply', '適用', '应用'],
+    eyedropper: ['스포이드', 'Eyedropper', 'スポイト', '吸管'],
+    recent: ['최근 사용한 색상', 'Recent colors', '最近使った色', '最近使用的颜色'],
+    help: ['색상 영역을 움직여 색을 선택하고 적용 버튼을 누르세요.', 'Move in the colour area to pick a colour, then press Apply.', '色の領域を動かして色を選び、適用を押してください。', '在色彩区域中移动选色，然后点击应用。'],
+    sv: ['채도와 밝기', 'Saturation and brightness', '彩度と明度', '饱和度与亮度'],
+    hue: ['색상', 'Hue', '色相', '色相'],
+    hex: ['HEX 색상', 'HEX color', 'HEXカラー', 'HEX 颜色']
+  };
+  const CSS = `
+  body.cp-open { overflow: hidden; }
+  .cp-backdrop { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(15,18,20,.32); backdrop-filter: blur(2px); }
+  .cp-backdrop[hidden] { display: none !important; }
+  .cp-sheet { width: min(324px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto; background: #fff; border: 1px solid rgba(0,0,0,.09); border-radius: 4px; padding: 18px; box-shadow: 0 14px 38px rgba(0,0,0,.22); touch-action: manipulation; font-family: inherit; }
+  .cp-preview { height: 24px; border-radius: 3px; margin-bottom: 12px; border: 1px solid rgba(0,0,0,.08); background: #323232; }
+  .cp-sv-wrap { position: relative; width: 100%; aspect-ratio: 1.36 / 1; margin-bottom: 14px; touch-action: none; }
+  .cp-sv { width: 100%; height: 100%; display: block; border-radius: 4px; cursor: crosshair; touch-action: none; }
+  .cp-knob { position: absolute; width: 22px; height: 22px; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0,0,0,.65), 0 1px 3px rgba(0,0,0,.35); transform: translate(-50%,-50%); pointer-events: none; }
+  .cp-hue-wrap { position: relative; height: 14px; margin: 0 0 28px; touch-action: none; }
+  .cp-hue { width: 100%; height: 14px; display: block; border-radius: 999px; cursor: pointer; touch-action: none; background: linear-gradient(90deg,#f00 0%,#ff0 16.66%,#0f0 33.33%,#0ff 50%,#00f 66.66%,#f0f 83.33%,#f00 100%); }
+  .cp-hue-knob { position: absolute; top: 50%; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.48), 0 1px 3px rgba(0,0,0,.28); transform: translate(-50%,-50%); pointer-events: none; background: #f00; }
+  .cp-recent { margin: 0 0 14px; }
+  .cp-recent[hidden] { display: none !important; }
+  .cp-recent-label { font-size: 11px; color: #8a9199; margin-bottom: 7px; font-weight: 600; }
+  .cp-recent-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .cp-recent-row button { width: 24px; height: 24px; min-height: 0; padding: 0; border-radius: 50%; border: 2px solid rgba(0,0,0,.08); cursor: pointer; }
+  .cp-recent-row button:hover { border-color: var(--accent, #14b8a6); }
+  .cp-controls { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; align-items: center; }
+  .cp-hex { width: 100%; min-width: 0; height: 41px; padding: 8px 10px; border: 0; border-radius: 2px; background: #f0f1f2; color: #747980; font: 16px/1.2 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; text-transform: uppercase; box-sizing: border-box; }
+  .cp-hex:focus { outline: 2px solid rgba(20,184,166,.35); background: #f7f8f9; }
+  .cp-apply { height: 41px; min-height: 0; padding: 0 14px; border-radius: 2px; border: 0; background: var(--accent, #14b8a6); color: var(--accent-ink, #05201d); font: 700 14px inherit; cursor: pointer; }
+  .cp-apply:hover { filter: brightness(1.06); }
+  .cp-eye { width: 100%; min-height: 42px; margin-top: 10px; border-radius: 8px; border: 1px solid rgba(20,184,166,.45); background: rgba(20,184,166,.1); color: var(--accent-strong, #0d9488); display: flex; align-items: center; justify-content: center; gap: 8px; font: 600 15px inherit; cursor: pointer; }
+  .cp-eye[hidden] { display: none !important; }
+  .cp-sr { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0,0,0,0) !important; white-space: nowrap !important; border: 0 !important; }
+  @media (max-width: 600px) { .cp-backdrop { padding: 10px; } .cp-sheet { width: min(344px, calc(100vw - 20px)); padding: 16px; } }
+  `;
+  const HTML = `
+  <section class="cp-sheet" role="dialog" aria-modal="true">
+    <div class="cp-preview" aria-hidden="true"></div>
+    <div class="cp-sv-wrap"><canvas class="cp-sv" width="576" height="424"></canvas><span class="cp-knob" aria-hidden="true"></span></div>
+    <div class="cp-hue-wrap"><div class="cp-hue" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="360" aria-valuenow="0"></div><span class="cp-hue-knob" aria-hidden="true"></span></div>
+    <div class="cp-recent" hidden><div class="cp-recent-label"></div><div class="cp-recent-row"></div></div>
+    <div class="cp-controls"><input type="text" class="cp-hex" maxlength="7" autocomplete="off" autocapitalize="characters" spellcheck="false" value="#323232"><button type="button" class="cp-apply"></button></div>
+    <button type="button" class="cp-eye" hidden><span aria-hidden="true">⌕</span><span class="cp-eye-label"></span></button>
+    <span class="cp-sr"></span>
+  </section>`;
+
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  function hexToRgb(hex) {
+    const clean = String(hex).replace('#', '').trim();
+    const full = clean.length === 3 ? clean.split('').map(c => c + c).join('') : clean;
+    if (!/^[0-9a-fA-F]{6}$/.test(full)) return null;
+    const n = parseInt(full, 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+  }
+  const rgbToHex = (r, g, b) => '#' + [r, g, b].map(n => Math.round(clamp(n, 0, 255)).toString(16).padStart(2, '0')).join('');
+  function rgbToHsv(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    let h = 0;
+    if (d) {
+      if (max === r) h = ((g - b) / d) % 6; else if (max === g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
+      h *= 60; if (h < 0) h += 360;
+    }
+    return { h, s: max === 0 ? 0 : d / max, v: max };
+  }
+  function hsvToRgb(h, s, v) {
+    h = ((h % 360) + 360) % 360;
+    const c = v * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c;
+    let r = 0, g = 0, b = 0;
+    if (h < 60) [r, g, b] = [c, x, 0]; else if (h < 120) [r, g, b] = [x, c, 0]; else if (h < 180) [r, g, b] = [0, c, x];
+    else if (h < 240) [r, g, b] = [0, x, c]; else if (h < 300) [r, g, b] = [x, 0, c]; else [r, g, b] = [c, 0, x];
+    return { r: (r + m) * 255, g: (g + m) * 255, b: (b + m) * 255 };
+  }
+  const hsvToHex = (h, s, v) => { const c = hsvToRgb(h, s, v); return rgbToHex(c.r, c.g, c.b); };
+
+  let ui = null, active = null, original = '#000000', hsv = { h: 0, s: 0, v: 0.2 }, getLang = () => 'ko';
+  let recent = [], svDrag = false, hueDrag = false;
+  const RKEY = 'swoonqx-recent-colors', RMAX = 12;
+  const T = k => { const e = STR[k], i = LANGS.indexOf(getLang()); return e[i < 0 ? 1 : i]; };
+
+  function build() {
+    if (ui) return;
+    const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
+    const bd = document.createElement('div'); bd.className = 'cp-backdrop'; bd.hidden = true; bd.innerHTML = HTML; document.body.appendChild(bd);
+    const q = s => bd.querySelector(s);
+    ui = { bd, sheet: q('.cp-sheet'), preview: q('.cp-preview'), sv: q('.cp-sv'), svKnob: q('.cp-knob'), hue: q('.cp-hue'), hueKnob: q('.cp-hue-knob'),
+      recentWrap: q('.cp-recent'), recentLabel: q('.cp-recent-label'), recentRow: q('.cp-recent-row'), hex: q('.cp-hex'), apply: q('.cp-apply'),
+      eye: q('.cp-eye'), eyeLabel: q('.cp-eye-label'), help: q('.cp-sr') };
+    try { recent = JSON.parse(localStorage.getItem(RKEY) || '[]').filter(h => hexToRgb(h)); } catch (_) {}
+
+    ui.sv.addEventListener('pointerdown', e => { svDrag = true; try { ui.sv.setPointerCapture(e.pointerId); } catch (_) {} setSV(e); });
+    ui.sv.addEventListener('pointermove', e => { if (svDrag) setSV(e); });
+    ['pointerup', 'pointercancel'].forEach(n => ui.sv.addEventListener(n, () => { svDrag = false; }));
+    ui.hue.addEventListener('pointerdown', e => { hueDrag = true; try { ui.hue.setPointerCapture(e.pointerId); } catch (_) {} setHue(e); });
+    ui.hue.addEventListener('pointermove', e => { if (hueDrag) setHue(e); });
+    ['pointerup', 'pointercancel'].forEach(n => ui.hue.addEventListener(n, () => { hueDrag = false; }));
+    ui.hue.addEventListener('keydown', e => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault(); hsv.h = (hsv.h + (e.key === 'ArrowRight' ? 2 : -2) + 360) % 360; refresh(true);
+    });
+    ui.hex.addEventListener('input', () => { const rgb = hexToRgb(ui.hex.value); if (!rgb) return; hsv = rgbToHsv(rgb.r, rgb.g, rgb.b); refresh(true); });
+    ui.hex.addEventListener('blur', () => refresh(false));
+    ui.hex.addEventListener('keydown', e => { if (e.key === 'Enter') close(true); });
+    ui.apply.addEventListener('click', () => close(true));
+    ui.bd.addEventListener('click', e => { if (e.target === ui.bd) close(false); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !ui.bd.hidden) close(false); });
+    if ('EyeDropper' in window) {
+      ui.eye.hidden = false;
+      ui.eye.addEventListener('click', async () => {
+        try { const r = await new EyeDropper().open(), rgb = hexToRgb(r.sRGBHex); if (!rgb) return; hsv = rgbToHsv(rgb.r, rgb.g, rgb.b); refresh(true); } catch (_) {}
+      });
+    }
+  }
+  function texts() {
+    ui.sheet.setAttribute('aria-label', T('title')); ui.apply.textContent = T('apply'); ui.eyeLabel.textContent = T('eyedropper');
+    ui.recentLabel.textContent = T('recent'); ui.help.textContent = T('help');
+    ui.sv.setAttribute('aria-label', T('sv')); ui.hue.setAttribute('aria-label', T('hue')); ui.hex.setAttribute('aria-label', T('hex'));
+  }
+  function drawSV() {
+    const c = ui.sv, g = c.getContext('2d');
+    g.clearRect(0, 0, c.width, c.height);
+    g.fillStyle = hsvToHex(hsv.h, 1, 1); g.fillRect(0, 0, c.width, c.height);
+    const w = g.createLinearGradient(0, 0, c.width, 0); w.addColorStop(0, '#fff'); w.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = w; g.fillRect(0, 0, c.width, c.height);
+    const b = g.createLinearGradient(0, 0, 0, c.height); b.addColorStop(0, 'rgba(0,0,0,0)'); b.addColorStop(1, '#000');
+    g.fillStyle = b; g.fillRect(0, 0, c.width, c.height);
+  }
+  function push(hex) {
+    if (!active) return;
+    active.value = hex;
+    active.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  function refresh(pushIt) {
+    const hex = hsvToHex(hsv.h, hsv.s, hsv.v);
+    ui.preview.style.background = hex; ui.hex.value = hex.toUpperCase();
+    drawSV();
+    ui.svKnob.style.left = hsv.s * 100 + '%'; ui.svKnob.style.top = (1 - hsv.v) * 100 + '%';
+    ui.hueKnob.style.left = hsv.h / 360 * 100 + '%'; ui.hueKnob.style.background = hsvToHex(hsv.h, 1, 1);
+    ui.hue.setAttribute('aria-valuenow', String(Math.round(hsv.h)));
+    if (pushIt) push(hex);
+  }
+  function buildRecent() {
+    if (!recent.length) { ui.recentWrap.hidden = true; return; }
+    ui.recentWrap.hidden = false; ui.recentRow.innerHTML = '';
+    recent.forEach(hex => {
+      const b = document.createElement('button'); b.type = 'button'; b.style.background = hex; b.title = hex;
+      b.addEventListener('click', () => { const rgb = hexToRgb(hex); if (!rgb) return; hsv = rgbToHsv(rgb.r, rgb.g, rgb.b); refresh(true); });
+      ui.recentRow.appendChild(b);
+    });
+  }
+  function open(input) {
+    if (!input || input.disabled) return;
+    build(); texts();
+    active = input; original = input.value || '#000000';
+    const rgb = hexToRgb(original) || { r: 0, g: 0, b: 0 };
+    hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
+    ui.bd.hidden = false; document.body.classList.add('cp-open');
+    buildRecent(); refresh(false);
+    requestAnimationFrame(() => { try { ui.hex.focus({ preventScroll: true }); } catch (_) {} });
+  }
+  function close(commit) {
+    if (!active) return;
+    if (!commit) push(original);
+    else {
+      const hex = hsvToHex(hsv.h, hsv.s, hsv.v).toLowerCase();
+      recent = [hex, ...recent.filter(c => c !== hex)].slice(0, RMAX);
+      try { localStorage.setItem(RKEY, JSON.stringify(recent)); } catch (_) {}
+    }
+    ui.bd.hidden = true; document.body.classList.remove('cp-open');
+    const back = active; active = null;
+    try { back.focus({ preventScroll: true }); } catch (_) {}
+  }
+  function setSV(e) {
+    const r = ui.sv.getBoundingClientRect();
+    hsv.s = clamp((e.clientX - r.left) / r.width, 0, 1); hsv.v = 1 - clamp((e.clientY - r.top) / r.height, 0, 1);
+    refresh(true);
+  }
+  function setHue(e) {
+    const r = ui.hue.getBoundingClientRect();
+    hsv.h = clamp((e.clientX - r.left) / r.width, 0, 1) * 360; if (hsv.h >= 360) hsv.h = 359.999;
+    refresh(true);
+  }
+
+  function attach(input, opts) {
+    if (!input) return;
+    if (opts && opts.getLang) getLang = opts.getLang;
+    input.setAttribute('aria-haspopup', 'dialog');
+    input.addEventListener('click', e => { e.preventDefault(); open(input); });
+    input.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(input); } });
+  }
+  root.ColorPicker = { attach };
+})(typeof window !== 'undefined' ? window : this);
+
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+
+const V3 = THREE.Vector3;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+
+/* ------------------------------------------------------------ 색 유틸 */
+const h2r = h => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+const mixHex = (a, b, t) => { const p = h2r(a), q = h2r(b); return '#' + [0, 1, 2].map(i => Math.round(p[i] + (q[i] - p[i]) * t).toString(16).padStart(2, '0')).join(''); };
+
+/* ------------------------------------------------------------ 데이터 */
+// 동물별 차이는 귀와 꼬리만. (눈/코 색 같은 기본값은 취향용)
+const SPECIES = {
+  dog:     { name: '강아지', body: '#f6f1e8', eye: '#2a2226', nose: '#3a2c2c', inner: '#f1c9c0', ears: 'floppy', tail: 'spindle', tl: 0.22, tr: 0.04, rise: 0.045, patterns: {} },
+  cat:     { name: '고양이', body: '#f3efe9', eye: '#2a2226', nose: '#f0a0a8', inner: '#f2b8c0', ears: 'point', earH: 0.165, earR: 0.098, tail: 'long', patterns: {} },
+  rabbit:  { name: '토끼', body: '#f2f4f8', eye: '#2a2226', nose: '#f6a8b6', inner: '#f6b8c4', ears: 'long', tail: 'ball', tailR: 0.06, patterns: {} },
+  fox:     { name: '여우', body: '#e8883a', eye: '#2a2226', nose: '#2b2226', inner: '#fff1e0', ears: 'point', earH: 0.2, earR: 0.095, tail: 'spindle', tl: 0.3, tr: 0.075, rise: 0.03, patterns: { tail_tip: '#ffffff', ear_tip: '#3a2f2f' } },
+  bear:    { name: '곰돌이', body: '#9a6a42', eye: '#2a2226', nose: '#2b2226', inner: '#d9b48a', ears: 'round', earR: 0.105, tail: 'ball', tailR: 0.05, patterns: {} },
+  hamster: { name: '햄스터', body: '#f1d3a0', eye: '#2a2226', nose: '#f0a0a8', inner: '#f6c4b4', ears: 'round', earR: 0.075, tail: 'drop', patterns: {} },
+  wolf:    { name: '늑대', body: '#9ba1ab', eye: '#2a2226', nose: '#2b2226', inner: '#d9dce2', ears: 'point', earH: 0.17, earR: 0.1, tail: 'spindle', tl: 0.29, tr: 0.052, rise: -0.02, patterns: { tail_tip: '#5b616b' } },
+};
+const SPECIES_ORDER = ['dog', 'cat', 'rabbit', 'fox', 'bear', 'hamster', 'wolf'];
+const EYE_FAMS = [['basic', '기본눈'], ['moe', '모에눈'], ['closed', '감은눈']];
+const EYE_VARS = {
+  basic: [['round', '둥그라미'], ['square', '네모']],
+  moe: [['normal', '기본'], ['angry', '화남'], ['droop', '쳐짐']],
+  closed: [['normal', '기본'], ['smile', '웃음'], ['angry', '화남'], ['droop', '쳐짐']],
+};
+const MOUTHS = [['closed', '다문입'], ['smile', '웃는입'], ['omega', '3자입'], ['smirk', '씨익']];
+const PATTERNS = [
+  ['forehead', '이마 투톤', '#9aa0aa'], ['stripes', '이마 줄무늬', '#6a5a4a'],
+  ['eyepatchL', '눈 얼룩(왼쪽)', '#8a6a4a'], ['eyepatchR', '눈 얼룩(오른쪽)', '#8a6a4a'], ['muzzle', '입가 포인트', '#fff4e6'],
+  ['ear_tip', '귀 끝', '#5b616b'], ['tail_tip', '꼬리 끝', '#ffffff'], ['socks', '손발 끝', '#3a2f2f'],
+];
+const HEAD_ORN = [['crown', '왕관'], ['sprout', '새싹'], ['plumbob', '다이아'], ['heart', '하트'], ['halo', '헤일로'], ['horns', '악마 뿔'], ['star', '별'], ['mushroom', '버섯']];
+// 머리 위 장식은 '공중에 뜨는 것' 1개 + '머리에 붙는 것' 1개까지 동시에 선택할 수 있다(같은 종류끼리는 하나만).
+const ORN_FLOAT = ['plumbob', 'heart', 'halo', 'star'];
+const LASH_OPTS = [[0, '없음'], [1, '1개'], [2, '2개']];
+const BACK_ORN =[['none', '없음'], ['angel', '천사 날개'], ['devil', '악마 날개']];
+const MOLES = [['eyeL', '왼쪽 눈 밑'], ['eyeR', '오른쪽 눈 밑'], ['mouthL', '왼쪽 입가'], ['mouthR', '오른쪽 입가']];
+const GLASSES = [['none', '없음'], ['round', '동글'], ['square', '사각'], ['oval', '타원'], ['cat', '캣아이']];
+const RIBBONS = [['neck', '리본']];
+const POLY = { 1: { w: 18, h: 11, f: 0.85, tw: 12, th: 8 }, 2: { w: 30, h: 18, f: 0.45, tw: 18, th: 12 } };
+const POLY_OPTS = [[1, '각지게'], [2, '보통']];
+// 프리셋 색은 5가지로 줄였다(그 밖의 색은 오른쪽 색 선택 버튼으로 직접 지정)
+const SW = {
+  body: ['#f6f1e8', '#e8883a', '#9a6a42', '#9ba1ab', '#e8b0b8'],
+  eye: ['#2a2226', '#2b4a7a', '#1d5a4a', '#7a2a3a', '#d9a43a'],
+  shirt: ['#f2f2f2', '#6a8fd6', '#d94a4a', '#4aa86a', '#2f3038'],
+  moleColor: ['#4a3328', '#2a2226', '#7a4a3a'],
+  glassesColor: ['#c0392b', '#2a2226', '#d9a43a', '#3a6fb8', '#f2f2f2'],
+  ribbonColor: ['#e0507a', '#d94a4a', '#3a6fb8', '#e8d84a', '#2a2226'],
+  headOrnColor: ['#f2c14e', '#e0507a', '#4aa86a', '#6fd0e8', '#f2f2f2'],
+  backOrnColor: ['#ffffff', '#2a2226', '#e0507a', '#3a6fb8', '#4aa86a'],
+};
+
+const freshState = () => {
+  const st = {
+    species: 'dog', body: SPECIES.dog.body, eye: SPECIES.dog.eye,
+    patterns: {}, patternSync: false, blush: true, shirtOn: false, shirt: '#6a8fd6', outline: true,
+    moles: { eyeL: false, eyeR: false, mouthL: false, mouthR: false }, moleColor: '#4a3328',
+    glasses: 'none', glassesColor: '#c0392b',
+    ribbons: { neck: false }, ribbonColor: '#e0507a',
+    headOrns: [], headOrnColors: ['#f2c14e', '#e0507a'], backOrn: 'none', backOrnColor: '#ffffff',
+    eyeFam: 'moe', eyeVar: 'normal', lashTop: 0, lashUnder: 0, mouth: 'closed',
+    earInner: true,        // 귀 안쪽 색 켜기/끄기
+    customFace: null,      // 업로드한 얼굴 그림 { name, pm }. 있으면 눈·입·눈 색 설정은 잠긴다
+    poly: 1,
+  };
+  for (const [pid, , dc] of PATTERNS) st.patterns[pid] = { on: false, color: dc };
+  return st;
+};
+const state = freshState();
+// 동물 종류를 바꿔도 사용자가 정한 색·무늬는 그대로 유지한다(종류별 기본 색 자동 변경 없음).
+function applySpecies(id) { state.species = id; }
+// 모든 설정을 처음 상태로(객체는 그대로 두고 내용만 교체). 모델 이름·제작자는 건드리지 않는다.
+function resetState() { for (const k of Object.keys(state)) delete state[k]; Object.assign(state, freshState()); }
+
+/* ------------------------------------------------------------ 체형 (2등신) */
+// 스케치 기준: 둥근 사각 머리, 둥근 사각 몸통, 몸통 옆에 붙는 물방울 팔, 몸통 밑의 짧은 둥근 사각 다리
+const HC = new V3(0, 0.57, 0), HA = 0.31, HB = 0.26, HZ = 0.27, HN = 3.2;   // 머리(반지름, 슈퍼타원 지수)
+const TC = new V3(0, 0.225, 0), TH = [0.165, 0.11, 0.125], TN = 3.0;        // 몸통
+
+const BONES = [
+  ['hips', null, [0, 0.16, 0]], ['spine', 'hips', [0, 0.20, 0]], ['chest', 'spine', [0, 0.26, 0]],
+  ['neck', 'chest', [0, 0.30, 0]], ['head', 'neck', [0, 0.33, 0]],
+  ['leftUpperArm', 'chest', [0.14, 0.27, 0]], ['leftLowerArm', 'leftUpperArm', [0.20, 0.27, 0]], ['leftHand', 'leftLowerArm', [0.255, 0.27, 0]],
+  ['rightUpperArm', 'chest', [-0.14, 0.27, 0]], ['rightLowerArm', 'rightUpperArm', [-0.20, 0.27, 0]], ['rightHand', 'rightLowerArm', [-0.255, 0.27, 0]],
+  ['leftUpperLeg', 'hips', [0.085, 0.125, 0]], ['leftLowerLeg', 'leftUpperLeg', [0.085, 0.075, 0]], ['leftFoot', 'leftLowerLeg', [0.085, 0.03, 0]],
+  ['rightUpperLeg', 'hips', [-0.085, 0.125, 0]], ['rightLowerLeg', 'rightUpperLeg', [-0.085, 0.075, 0]], ['rightFoot', 'rightLowerLeg', [-0.085, 0.03, 0]],
+  ['tail', 'hips', [0, 0.15, -0.115]],
+];
+const BI = Object.fromEntries(BONES.map((b, i) => [b[0], i]));
+const HUMAN_BONES = BONES.filter(b => b[0] !== 'tail');
+
+const fixedW = name => () => [[BI[name], 1]];
+const alongW = (axis, bounds, bones, w = 0.025) => p => {
+  const a = axis(p), t = bounds.map(b => sstep(b - w, b + w, a));
+  const out = []; let carry = 1;
+  for (let i = 0; i < bones.length - 1; i++) { out.push([BI[bones[i]], carry * (1 - t[i])]); carry *= t[i]; }
+  out.push([BI[bones[bones.length - 1]], carry]);
+  return out.filter(x => x[1] > 1e-4);
+};
+const torsoW = alongW(p => p.y, [0.19, 0.25], ['hips', 'spine', 'chest']);
+const armW = side => alongW(p => Math.abs(p.x), [0.18, 0.235], [side + 'UpperArm', side + 'LowerArm', side + 'Hand']);
+const legW = side => alongW(p => -p.y, [-0.095, -0.05], [side + 'UpperLeg', side + 'LowerLeg', side + 'Foot']);
+
+/* ------------------------------------------------------------ 지오메트리 도우미 */
+const NI = g => (g.index ? g.toNonIndexed() : g);
+function T(geo, p = [0, 0, 0], r = [0, 0, 0], s = [1, 1, 1]) {
+  geo.applyMatrix4(new THREE.Matrix4().compose(new V3(...p), new THREE.Quaternion().setFromEuler(new THREE.Euler(...r)), new V3(...s)));
+  return geo;
+}
+// 타원체. 정면(+Z)이 u=0.5가 되도록 이음선을 뒤쪽에 둔다.
+const blob = (c, r, w, h, rot = [0, 0, 0]) => T(NI(new THREE.SphereGeometry(1, w, h, -Math.PI / 2)), c, rot, r);
+// 슈퍼타원체(둥근 상자): |x/a|^n + |y/b|^n + |z/c|^n = 1
+const supT = (u, n) => Math.pow(Math.pow(Math.abs(u.x), n) + Math.pow(Math.abs(u.y), n) + Math.pow(Math.abs(u.z), n), -1 / n);
+const sgnPow = (v, e) => Math.sign(v) * Math.pow(Math.abs(v), e);
+function superGeo(c, half, n, w, h, { rot = [0, 0, 0], taper = null } = {}) {
+  const g = NI(new THREE.SphereGeometry(1, w, h, -Math.PI / 2));
+  const pa = g.attributes.position, na = new Float32Array(pa.count * 3), u = new V3();
+  for (let i = 0; i < pa.count; i++) {
+    u.fromBufferAttribute(pa, i).normalize();
+    const t = supT(u, n), qx = u.x * t, qy = u.y * t, qz = u.z * t;
+    let x = half[0] * qx, y = half[1] * qy, z = half[2] * qz;
+    if (taper) { const k = taper(x / half[0]); y *= k; z *= k; }
+    pa.setXYZ(i, x, y, z);
+    const nv = new V3(sgnPow(qx, n - 1) / half[0], sgnPow(qy, n - 1) / half[1], sgnPow(qz, n - 1) / half[2]).normalize();
+    na[i * 3] = nv.x; na[i * 3 + 1] = nv.y; na[i * 3 + 2] = nv.z;
+  }
+  g.setAttribute('normal', new THREE.BufferAttribute(na, 3));
+  g.applyMatrix4(new THREE.Matrix4().compose(new V3(...c), new THREE.Quaternion().setFromEuler(new THREE.Euler(...rot)), new V3(1, 1, 1)));
+  return g;
+}
+const ellP = d => { const u = d.clone().normalize(), t = supT(u, HN); return new V3(HC.x + HA * u.x * t, HC.y + HB * u.y * t, HC.z + HZ * u.z * t); };
+const ellN = d => { const u = d.clone().normalize(), t = supT(u, HN); return new V3(sgnPow(u.x * t, HN - 1) / HA, sgnPow(u.y * t, HN - 1) / HB, sgnPow(u.z * t, HN - 1) / HZ).normalize(); };
+const UP = new V3(0, 1, 0);
+// 밑면이 원점, +y로 뻗는 지오메트리를 머리 표면 d에 세운다. lean: 0=수직 1=표면 법선 방향
+function stand(geo, d, lean = 0.5, sink = 0, twist = 0) {
+  const n = ellN(d), axis = n.clone().multiplyScalar(lean).add(UP.clone().multiplyScalar(1 - lean + 0.0001)).normalize();
+  const q1 = new THREE.Quaternion().setFromUnitVectors(UP, axis);
+  const z1 = new V3(0, 0, 1).applyQuaternion(q1), f = new V3(0, 0, 1).addScaledVector(axis, -axis.z).normalize();
+  const ang = Math.atan2(axis.dot(new V3().crossVectors(z1, f)), z1.dot(f)) + twist;
+  const q = new THREE.Quaternion().setFromAxisAngle(axis, ang).multiply(q1);
+  geo.applyMatrix4(new THREE.Matrix4().compose(ellP(d).addScaledVector(axis, -sink), q, new V3(1, 1, 1)));
+  geo.userData.axis = axis.clone();
+  return geo;
+}
+
+/* ---- 귀/꼬리 부착: 어떤 귀·꼬리든 머리·몸통 폴리곤 안으로 반드시 파고들어 이어지게 만든다 ----
+   host(p): 호스트 내부 값(<1 이면 내부). axis: 밑동에서 끝으로 향하는 방향. sinkDir: 호스트 안쪽 방향.
+   밑동(축 방향 가장 낮은 12%)의 모든 정점이 호스트 안쪽(0.9 미만)에 들어갈 때까지 안쪽으로 밀어 넣는다. */
+const headF = p => Math.pow(Math.abs(p.x - HC.x) / HA, HN) + Math.pow(Math.abs(p.y - HC.y) / HB, HN) + Math.pow(Math.abs(p.z - HC.z) / HZ, HN);
+const torsoF = p => Math.pow(Math.abs(p.x - TC.x) / TH[0], TN) + Math.pow(Math.abs(p.y - TC.y) / TH[1], TN) + Math.pow(Math.abs(p.z - TC.z) / TH[2], TN);
+function baseVerts(geo, axis, frac = 0.12) {
+  const pa = geo.attributes.position, pr = new Float32Array(pa.count), v = new V3();
+  let mn = 1e9, mx = -1e9;
+  for (let i = 0; i < pa.count; i++) { v.fromBufferAttribute(pa, i); pr[i] = v.dot(axis); mn = Math.min(mn, pr[i]); mx = Math.max(mx, pr[i]); }
+  const out = [];
+  for (let i = 0; i < pa.count; i++) if (pr[i] <= mn + frac * (mx - mn)) out.push(new V3().fromBufferAttribute(pa, i));
+  return out;
+}
+function embed(geo, host, sinkDir, axis, others = []) {
+  // 성공 조건(엄격): 밑동 정점 "전부"가 호스트 안쪽(<0.9)에 들어갈 것.
+  // 밑동 일부라도 밖에 있으면 열린 밑동 사이로 속이 보이는 빈공간이 생기기 때문이다.
+  const base = baseVerts(geo, axis, 0.1);
+  let s = 0, worst = 9;
+  for (; s <= 0.2; s += 0.004) {
+    worst = base.reduce((m, b) => Math.max(m, host(b.clone().addScaledVector(sinkDir, s))), 0);
+    if (worst < 0.9) break;
+  }
+  const off = sinkDir.clone().multiplyScalar(s);
+  for (const g of [geo, ...others]) g.translate(off.x, off.y, off.z);
+  geo.userData.attach = { host: host === headF ? 'head' : 'torso', worst, shift: s, open: openEdges(geo) };
+  return off;
+}
+// 닫힌 곡면 점검: 위치가 같은 정점을 합쳐 한 번만 쓰인 모서리(구멍) 개수를 센다. 0이어야 속이 비지 않는다.
+function openEdges(geo) {
+  const pa = geo.attributes.position, key = i => Math.round(pa.getX(i) * 1e4) + ',' + Math.round(pa.getY(i) * 1e4) + ',' + Math.round(pa.getZ(i) * 1e4);
+  const cnt = new Map();
+  for (let t = 0; t + 2 < pa.count; t += 3) {
+    const k = [key(t), key(t + 1), key(t + 2)];
+    for (let e = 0; e < 3; e++) {
+      const a = k[e], b = k[(e + 1) % 3];
+      if (a === b) continue;
+      const ek = a < b ? a + '|' + b : b + '|' + a;
+      cnt.set(ek, (cnt.get(ek) || 0) + 1);
+    }
+  }
+  let open = 0;
+  for (const v of cnt.values()) if (v % 2) open++;
+  return open;
+}
+// 곡선 중심선을 따라 납작한 타원 단면을 쓸어 만든 귀(스코티시폴드의 접힌 귀용). 밑바닥·끝은 닫혀 있다.
+// 중심선: 높이 uf까지 곧게 솟다가 앞(+z)으로 휘며 아래로 접힌다. 폭 프로필은 EAR_PROFILE 사용.
+function foldEarGeo(R, H, { uf = 0.45, phiMax = 2.1, rho = null, thk = 0.5, k = 1, offN = 0, steps = 26, seg = 18 } = {}) {
+  const prof = EAR_PROFILE.fold, y0 = prof[0][0], y1 = prof[prof.length - 1][0];
+  const radAt = yn => { for (let i = 1; i < prof.length; i++) if (yn <= prof[i][0]) { const a = prof[i - 1], b = prof[i], t = (yn - a[0]) / (b[0] - a[0]); return a[1] + (b[1] - a[1]) * t; } return 0; };
+  const ufA = uf * H, rhoA = rho == null ? (H - ufA) / phiMax : rho, arcLen = rhoA * phiMax;
+  // 곧게 솟는 줄기 → 반지름 rhoA의 호로 접힘 → 접힌 방향으로 곧게 뻗는 날개(머리에 붙는 부분)
+  const path = u => {
+    if (u <= ufA) return { P: new V3(0, u, 0), N: new V3(0, 0, 1) };
+    if (u <= ufA + arcLen) {
+      const ph = (u - ufA) / rhoA;
+      return { P: new V3(0, ufA + rhoA * Math.sin(ph), rhoA * (1 - Math.cos(ph))), N: new V3(0, -Math.sin(ph), Math.cos(ph)) };
+    }
+    const sP = Math.sin(phiMax), cP = Math.cos(phiMax), ex = u - (ufA + arcLen);
+    return { P: new V3(0, ufA + rhoA * sP + cP * ex, rhoA * (1 - cP) + sP * ex), N: new V3(0, -sP, cP) };
+  };
+  const rings = [], centers = [];
+  for (let i = -1; i <= steps; i++) {
+    const yn = y0 + (y1 - y0) * (Math.max(i, 0) / steps), u = yn * H;
+    const { P, N } = path(u), r = (i < 0 || i === steps) ? 0 : radAt(yn) * R * k;
+    const c = P.clone().addScaledVector(N, offN);
+    centers.push(c);
+    rings.push(Array.from({ length: seg }, (_, j) => {
+      const a = (j / seg) * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+      const nv = new V3(ca, 0, 0).addScaledVector(N, sa / thk).normalize();
+      return { p: c.clone().add(new V3(ca * r, 0, 0)).addScaledVector(N, sa * thk * r), n: nv };
+    }));
+  }
+  const pos = [], nor = [];
+  const push = v => { pos.push(v.p.x, v.p.y, v.p.z); nor.push(v.n.x, v.n.y, v.n.z); };
+  for (let i = 0; i < rings.length - 1; i++) for (let j = 0; j < seg; j++) {
+    const j2 = (j + 1) % seg, A = rings[i][j], B = rings[i][j2], C = rings[i + 1][j2], D = rings[i + 1][j];
+    [A, C, B, A, D, C].forEach(push);   // 바깥쪽이 앞면이 되도록 감는 방향을 정해 둔다(접힌 부분도 뒤집히지 않음)
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  return g;
+}
+// 귀 단면 프로필 [높이비, 반지름비]: 밑동 아래(음수)는 머리 안에 묻히는 부분. 끝은 둥글게 처리.
+const EAR_PROFILE = {
+  cat:    [[-0.35, 1], [0, 1], [0.25, 0.8], [0.55, 0.55], [0.78, 0.36], [0.92, 0.22], [0.98, 0.1], [1, 0]],
+  fox:    [[-0.35, 1], [0, 1], [0.35, 0.68], [0.7, 0.38], [0.9, 0.2], [0.98, 0.09], [1, 0]],
+  fold:   [[-0.35, 1], [0, 1], [0.3, 0.95], [0.6, 0.85], [0.82, 0.68], [0.94, 0.45], [0.985, 0.25], [1, 0]],
+  rabbit: [[-0.2, 0.86], [0, 0.88], [0.2, 0.98], [0.5, 1], [0.7, 0.95], [0.84, 0.82], [0.93, 0.62], [0.98, 0.38], [1, 0]],
+};
+function earLathe(name, R, H, k = 1, seg = 16) {
+  const pts = EAR_PROFILE[name].map(([y, r]) => new THREE.Vector2(r * R * k, y * H * k));
+  pts.unshift(new THREE.Vector2(0, pts[0].y));   // 밑바닥을 막아 속이 보이지 않게 한다
+  return NI(new THREE.LatheGeometry(pts, seg));
+}
+// 표면 점 P, 법선 n에 +z가 향하도록 놓기
+function facing(geo, P, n, roll = 0) {
+  const q = new THREE.Quaternion().setFromUnitVectors(new V3(0, 0, 1), n);
+  q.multiply(new THREE.Quaternion().setFromAxisAngle(new V3(0, 0, 1), roll));
+  geo.applyMatrix4(new THREE.Matrix4().compose(P, q, new V3(1, 1, 1)));
+  return geo;
+}
+// 제어점을 부드러운 곡선으로 샘플링
+const smoothPath = (pts, n) => new THREE.CatmullRomCurve3(pts, false, 'centripetal').getPoints(n);
+// 일정한 굵기의 파이프 + 둥근 끝(반구)
+function pipe(pts, r, seg = 10) {
+  const last = pts[pts.length - 1], t = last.clone().sub(pts[pts.length - 2]).normalize();
+  const first = pts[0], t0 = pts[1].clone().sub(first).normalize();
+  // r 가 배열이면 점마다 굵기가 다르다(끝으로 갈수록 굵어지는 잎 모양 꼬리 등)
+  const rs = Array.isArray(r) ? r : pts.map(() => r), rl = rs[rs.length - 1], rf = rs[0];
+  const P = pts.map(p => p.clone()), R = rs.slice(), C = pts.map(p => p.clone());
+  // 반구 끝: 법선은 반구 중심에서 바깥쪽(끝점에서는 진행 방향)이어야 외곽선에 '검은 점'이 생기지 않는다
+  for (const a of [0.5, 1.0, 1.3, Math.PI / 2]) { P.push(last.clone().addScaledVector(t, rl * Math.sin(a))); R.push(a === Math.PI / 2 ? 0 : rl * Math.cos(a)); C.push(last.clone()); }
+  for (const a of [0.5, 1.0, 1.3, Math.PI / 2]) { P.unshift(first.clone().addScaledVector(t0, -rf * Math.sin(a))); R.unshift(a === Math.PI / 2 ? 0 : rf * Math.cos(a)); C.unshift(first.clone()); }
+  return tubeGeo(P, R, seg, C);
+}
+// 점을 따라가는 관 (꼬리, 안경테). 반지름은 점마다 지정, 법선은 중심선에서 바깥쪽(centers 지정 시 그 중심 기준).
+function tubeGeo(pts, radii, seg = 6, centers = null) {
+  const n = pts.length, tans = pts.map((P, i) => pts[Math.min(i + 1, n - 1)].clone().sub(pts[Math.max(i - 1, 0)]).normalize());
+  let nrm = new V3(1, 0, 0); if (Math.abs(tans[0].x) > 0.9) nrm = new V3(0, 1, 0);
+  const rings = [];
+  for (let i = 0; i < n; i++) {
+    const t = tans[i]; nrm = nrm.clone().addScaledVector(t, -nrm.dot(t)).normalize();
+    const b = new V3().crossVectors(t, nrm).normalize();
+    rings.push(Array.from({ length: seg }, (_, j) => {
+      const a = (j / seg) * Math.PI * 2, dir = nrm.clone().multiplyScalar(Math.cos(a)).addScaledVector(b, Math.sin(a));
+      const p = pts[i].clone().addScaledVector(dir, radii[i]);
+      return { p, n: centers ? p.clone().sub(centers[i]).normalize() : dir };
+    }));
+  }
+  const pos = [], nor = [];
+  const push = v => { pos.push(v.p.x, v.p.y, v.p.z); nor.push(v.n.x, v.n.y, v.n.z); };
+  for (let i = 0; i < n - 1; i++) for (let j = 0; j < seg; j++) {
+    const j2 = (j + 1) % seg, A = rings[i][j], B = rings[i][j2], C = rings[i + 1][j2], D = rings[i + 1][j];
+    [A, B, C, A, C, D].forEach(push);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.userData.ctr = c => { let best = pts[0], bd = 1e9; for (const P of pts) { const d = P.distanceToSquared(c); if (d < bd) { bd = d; best = P; } } return best; };
+  return g;
+}
+
+/* ------------------------------------------------------------ 파츠 생성 */
+/* ---- 머리 위 장식 / 등 장식 ---- */
+const TOP_Y = HC.y + HB;   // 머리 윗면 높이
+function shapeGeo(shape, depth, bevel) {
+  const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2, curveSegments: 10 });
+  g.translate(0, 0, -depth / 2);
+  return NI(g);
+}
+function heartShape(k) {
+  const s = new THREE.Shape();
+  s.moveTo(0, -0.5 * k);
+  s.bezierCurveTo(-0.15 * k, -0.35 * k, -0.5 * k, -0.1 * k, -0.5 * k, 0.2 * k);
+  s.bezierCurveTo(-0.5 * k, 0.5 * k, -0.2 * k, 0.6 * k, 0, 0.38 * k);
+  s.bezierCurveTo(0.2 * k, 0.6 * k, 0.5 * k, 0.5 * k, 0.5 * k, 0.2 * k);
+  s.bezierCurveTo(0.5 * k, -0.1 * k, 0.15 * k, -0.35 * k, 0, -0.5 * k);
+  return s;
+}
+function starShape(R, r) {
+  const s = new THREE.Shape();
+  for (let i = 0; i < 10; i++) {
+    const a = Math.PI / 2 + (i / 10) * Math.PI * 2, rr = i % 2 ? r : R;
+    if (i === 0) s.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); else s.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+  }
+  s.closePath();
+  return s;
+}
+// 날개 모양: 명령 배열을 x 방향(sx)으로 뒤집어 같은 곡선을 좌우에 쓴다. 단위 m, (바깥쪽, 위쪽)
+const WING = {
+  angel: [['m', 0, 0], ['b', 0.02, 0.10, 0.08, 0.24, 0.22, 0.27], ['b', 0.28, 0.275, 0.31, 0.22, 0.29, 0.17],
+    ['q', 0.31, 0.12, 0.25, 0.10], ['q', 0.26, 0.06, 0.19, 0.05], ['q', 0.18, 0.015, 0.11, 0.02], ['q', 0.08, -0.015, 0.03, -0.02]],
+  devil: [['m', 0, 0], ['b', 0.03, 0.12, 0.12, 0.28, 0.28, 0.34],
+    ['q', 0.2, 0.2, 0.24, 0.1], ['q', 0.17, 0.1, 0.15, 0.02], ['q', 0.1, 0.06, 0.03, -0.01]],
+};
+function wingShape(kind, sx) {
+  const s = new THREE.Shape();
+  for (const [c, ...p] of WING[kind]) {
+    if (c === 'm') s.moveTo(p[0] * sx, p[1]);
+    else if (c === 'b') s.bezierCurveTo(p[0] * sx, p[1], p[2] * sx, p[3], p[4] * sx, p[5]);
+    else s.quadraticCurveTo(p[0] * sx, p[1], p[2] * sx, p[3]);
+  }
+  s.closePath();
+  return s;
+}
+// 머리 윗면의 높이(x 위치별). 장식이 곡면 위에 정확히 얹히도록 쓴다.
+const topY = x => HC.y + HB * Math.pow(Math.max(0, 1 - Math.pow(Math.abs(x) / HA, HN)), 1 / HN);
+// 왕관: 속이 빈 띠 벽의 윗단을 지그재그로 깎아 뾰족한 꼭지 n개를 만든다. y0=바닥(머리에 묻힘), yv=골 높이, yt=꼭지 높이
+function crownGeo(n, ro, ri, y0, yv, yt) {
+  const S = n * 2, P = [], at = (r, a, y) => [Math.sin(a) * r, y, Math.cos(a) * r];
+  const quad = (a, b, c, d, want) => {   // 사각형을 want 방향을 보도록 삼각형 2개로
+    const u = new V3(b[0] - a[0], b[1] - a[1], b[2] - a[2]), v = new V3(c[0] - a[0], c[1] - a[1], c[2] - a[2]);
+    const flip = new V3().crossVectors(u, v).dot(new V3(...want)) < 0;
+    const tri = flip ? [[a, c, b], [a, d, c]] : [[a, b, c], [a, c, d]];
+    for (const t of tri) for (const p of t) P.push(...p);
+  };
+  for (let k = 0; k < S; k++) {
+    const a0 = (k / S) * Math.PI * 2, a1 = ((k + 1) / S) * Math.PI * 2, am = (a0 + a1) / 2;
+    const h0 = k % 2 ? yv : yt, h1 = (k + 1) % 2 ? yv : yt;
+    quad(at(ro, a0, y0), at(ro, a1, y0), at(ro, a1, h1), at(ro, a0, h0), [Math.sin(am), 0, Math.cos(am)]);     // 바깥벽
+    quad(at(ri, a0, y0), at(ri, a1, y0), at(ri, a1, h1), at(ri, a0, h0), [-Math.sin(am), 0, -Math.cos(am)]);   // 안쪽벽
+    quad(at(ri, a0, h0), at(ri, a1, h1), at(ro, a1, h1), at(ro, a0, h0), [0, 1, 0]);                           // 윗면(꼭지 경사)
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(P.length / 3 * 2), 2));
+  g.computeVertexNormals();
+  return g;
+}
+function addOrnaments(s, add, fixedW, dir) {
+  const cone = (r, h, seg = 8) => T(NI(new THREE.ConeGeometry(r, h, seg)), [0, h / 2, 0]);
+  const cyl = (r0, r1, h, c, seg = 10) => T(NI(new THREE.CylinderGeometry(r0, r1, h, seg)), c);
+  // 머리 위 장식은 최대 2개(공중에 뜨는 것 1 + 머리에 붙는 것 1). 위치는 항상 같고, 2개여도 옮기거나 줄이지 않는다.
+  const list = s.headOrns.slice(0, 2);
+  list.forEach((type, idx) => {
+    const col = 'orn' + idx;
+    const cx = 0;
+    const put = (g, c = col) => {   // 원점(머리 윗면 위 한 점) 기준으로 만든 장식을 머리 윗면 위치로 옮긴다
+      g.applyMatrix4(new THREE.Matrix4().compose(new V3(cx, topY(cx), 0), new THREE.Quaternion(), new V3(1, 1, 1)));
+      add('orn', g, c, fixedW('head'));
+    };
+    switch (type) {
+      case 'crown': {   // 왕관: 동화 속 왕관처럼 단순한 띠 + 뾰족한 5개의 삼각 꼭지
+        put(crownGeo(5, 0.095, 0.082, -0.022, 0.03, 0.082));
+        break;
+      }
+      case 'sprout': {  // 새싹: 줄기 + 양쪽 잎(줄기·잎 모두 장식 색)
+        put(cyl(0.007, 0.009, 0.07, [0, 0.02, 0.01], 6));
+        for (const sx of [1, -1]) put(blob([sx * 0.04, 0.062, 0.01], [0.05, 0.018, 0.012], 12, 8, [0, 0, sx * 0.5]));
+        break;
+      }
+      case 'plumbob': { // 심즈: 머리 위에 떠 있는 다이아몬드
+        put(T(NI(new THREE.OctahedronGeometry(1, 0)), [0, 0.19, 0], [0, 0.4, 0], [0.052, 0.095, 0.052]));
+        break;
+      }
+      case 'heart': {   // 하트: 머리 위 공중에 뜬 하트
+        put(T(shapeGeo(heartShape(0.1), 0.03, 0.012), [0, 0.17, 0]));
+        break;
+      }
+      case 'star': {
+        put(T(shapeGeo(starShape(0.065, 0.03), 0.022, 0.01), [0, 0.17, 0]));
+        break;
+      }
+      case 'halo': {    // 천사 헤일로: 머리 위에 뜬 고리
+        put(T(NI(new THREE.TorusGeometry(0.1, 0.014, 8, 30)), [0, 0.11, 0], [Math.PI / 2 + 0.12, 0, 0]));
+        break;
+      }
+      case 'horns': {   // 악마 뿔: 머리에서 솟는 뿔 2개(머리 폴리곤 안으로 매입)
+        for (const sx of [1, -1]) {
+          const d = dir(sx * 0.42, 0.9, 0.06), g = T(cone(0.03, 0.11, 10));
+          stand(g, d, 0.35);
+          embed(g, headF, ellN(d).negate(), g.userData.axis);
+          add('orn', g, col, fixedW('head'));
+        }
+        break;
+      }
+      case 'mushroom': {
+        put(cyl(0.02, 0.024, 0.05, [0, 0.008, 0], 8), 'cream');
+        put(blob([0, 0.045, 0], [0.075, 0.042, 0.075], 14, 8));
+        for (const [x, z, y] of [[-0.032, 0.02, 0.083], [0.036, -0.012, 0.081], [0.004, 0.05, 0.072]]) put(blob([x, y, z], [0.013, 0.013, 0.013], 8, 6), 'white');
+        break;
+      }
+    }
+  });
+
+  const back = (g, w, col = 'orn2') => add('orn', g, col, w);
+  if (s.backOrn === 'angel' || s.backOrn === 'devil') {
+    // 등에서 살짝 떨어져 뒤쪽으로 펼쳐진 날개(몸에 붙지 않고 떠 있음)
+    for (const sx of [1, -1]) {
+      const g = shapeGeo(wingShape(s.backOrn, sx), 0.014, 0.004);
+      g.applyMatrix4(new THREE.Matrix4().compose(new V3(sx * 0.05, 0.245, -0.205), new THREE.Quaternion().setFromAxisAngle(new V3(0, 1, 0), sx * 0.6), new V3(1, 1, 1)));
+      back(g, fixedW('chest'));
+    }
+  }
+}
+
+function buildParts(s) {
+  const sp = SPECIES[s.species], pl = POLY[s.poly];
+  const parts = [];
+  const add = (kind, geo, col, w, extra = {}) => parts.push({ kind, geo, col, w, ...extra });
+
+  // 머리: 둥근 사각형(바닥이 납작). 얼굴은 텍스처로 그린다
+  add('head', superGeo(HC.toArray(), [HA, HB, HZ], HN, pl.w, pl.h), 'body', fixedW('head'), { map: 'head' });
+  // 몸통: 둥근 사각형, 머리보다 좁음
+  add('torso', superGeo(TC.toArray(), TH, TN, pl.tw, pl.th), 'body', torsoW, { map: 'torso' });
+  // 팔: 몸통 옆면에서 뻗는 물방울 모양(몸쪽이 좁고 끝이 둥글다). 다리: 몸통 밑의 짧은 둥근 사각형.
+  // 몸쪽 끝(좁은 쪽)이 너무 가늘지 않도록 78%까지만 줄어든다. 다리는 팔과 두께 차이가 크지 않게 조금 작게.
+  const tear = (cx, cy, len, w, th, sx) => superGeo([cx, cy, 0], [len / 2, w / 2, th / 2], 2.2, pl.tw, pl.th, { taper: x => 0.9 + 0.1 * ((x * sx + 1) / 2) });
+  for (const [sx, side] of [[1, 'left'], [-1, 'right']]) {
+    // 오른팔은 텍스처를 좌우 반전해 읽는다 → '손 끝' 무늬가 두 팔 모두 바깥쪽 끝에만 생긴다
+    // 팔: 몸통에 닿는 쪽 절반을 1.8배로 길게 늘여, 둥글게 좁아지는 끝이 몸통 안쪽에 묻히게 한다(다리와 같은 방식)
+    const armG = tear(sx * 0.215, 0.27, 0.15, 0.09, 0.08, sx), ap = armG.attributes.position;
+    for (let k = 0; k < ap.count; k++) { const d = (ap.getX(k) - sx * 0.215) * sx; if (d < 0) ap.setX(k, sx * 0.215 + sx * d * 1.8); }
+    add('arm', armG, 'body', armW(side), { map: 'arm', mirrorU: sx < 0 });
+    // 다리: 위쪽 절반을 길게 늘여 윗부분의 둥글게 좁아지는 구간이 몸통 안쪽에 묻히게 한다
+    // → 몸통과 만나는 곳까지 다리 굵기가 줄지 않고 그대로 이어진다
+    const legG = superGeo([sx * 0.085, 0.066, 0], [0.05, 0.066, 0.056], 3.0, pl.tw, pl.th, { rot: [0, 0, sx * 0.07] });
+    const lp = legG.attributes.position;
+    for (let k = 0; k < lp.count; k++) { const y = lp.getY(k); if (y > 0.066) lp.setY(k, 0.066 + (y - 0.066) * 1.8); }
+    add('leg', legG, 'body', legW(side), { map: 'leg' });
+  }
+
+  // 귀 ------------------------------------------------------------
+  // 모든 귀는 mount()를 거쳐 머리 폴리곤 안으로 자동 매입된다 → 새 귀 종류를 추가해도 항상 머리와 이어진다.
+  const dir = (x, y, z) => new V3(x, y, z).normalize();
+  const mount = (g, g2, d, tip = 'top') => {
+    embed(g, headF, ellN(d).negate(), g.userData.axis, g2 ? [g2] : []);
+    add('ear', g, 'body', fixedW('head'), { tip });
+    if (g2 && s.earInner) add('earIn', g2, 'inner', fixedW('head'));   // 귀 안쪽 색: 끄면 귀 안쪽 면 자체를 만들지 않아 몸 색 그대로 보인다
+  };
+  const FLAT = 0.5;
+  // 끝이 둥근 단면 프로필로 만든 귀(고양이·여우·늑대·스코티시폴드·토끼)
+  const profEar = (name, R, H, d, lean, tilt = [0, 0, 0]) => {
+    const g = earLathe(name, R, H);
+    g.applyMatrix4(new THREE.Matrix4().makeScale(1, 1, FLAT));
+    T(g, [0, 0, 0], tilt);
+    const g2 = earLathe(name, R, H, 0.62);
+    g2.applyMatrix4(new THREE.Matrix4().makeScale(1, 1, FLAT));
+    g2.translate(0, 0.03 * H, FLAT * R * 0.38 + 0.006);
+    T(g2, [0, 0, 0], tilt);
+    stand(g, d, lean); stand(g2, d, lean);
+    mount(g, g2, d);
+  };
+  if (sp.ears === 'point') {
+    // 머리 외곽이 아니라 안쪽(정수리 쪽)에서 솟도록 x 위치를 안으로 모았다
+    for (const sx of [1, -1]) profEar(s.species === 'fox' ? 'fox' : 'cat', sp.earR, sp.earH, dir(sx * 0.5, 0.86, 0.1), 0.3);
+  } else if (sp.ears === 'long') {
+    for (const sx of [1, -1]) profEar('rabbit', 0.062, 0.34, dir(sx * 0.4, 0.92, 0), 0.4);
+  } else if (sp.ears === 'round') {
+    // 곰/햄스터(10공방 참고): 정면을 향한 얇은 원판 귀. 머리 윗모서리에 걸쳐 절반쯤 바깥으로 나오고 바깥쪽으로 기울며, 앞면에 안쪽 원판이 있다.
+    const ham = s.species === 'hamster';
+    const rx = sp.earR, ry = ham ? rx * 1.25 : rx, rz = rx * 0.32;
+    const cx = ham ? 0.225 : 0.205, cy = ham ? 0.775 : 0.8, tilt = ham ? 0.8 : 0.35;
+    for (const sx of [1, -1]) {
+      const place = g => {
+        g.applyMatrix4(new THREE.Matrix4().compose(new V3(sx * cx, cy, 0), new THREE.Quaternion().setFromAxisAngle(new V3(0, 0, 1), -sx * tilt), new V3(1, 1, 1)));
+        return g;
+      };
+      const g = place(superGeo([0, 0, 0], [rx, ry, rz], 2, 20, 12));
+      const g2 = place(superGeo([0, 0, rz * 0.55], [rx * 0.62, ry * 0.62, rz * 0.7], 2, 16, 10));
+      g.userData.axis = new V3(sx * Math.sin(tilt), Math.cos(tilt), 0);
+      mount(g, g2, dir(sx * 0.7, 0.72, 0));
+    }
+  } else if (sp.ears === 'floppy') {
+    // 강아지: 머리 윗옆에서 늘어지는 물방울 귀(윗부분이 머리에 이어져 아래로 처짐)
+    for (const sx of [1, -1]) {
+      const len = 0.34, d = dir(sx * 0.8, 0.64, 0.08), a = -Math.PI / 2 + sx * 0.3;
+      const g = superGeo([len / 2, 0, 0], [len / 2, 0.118, 0.058], 2.2, 20, 12, { taper: x => 0.68 + 0.32 * ((x + 1) / 2) });
+      g.applyMatrix4(new THREE.Matrix4().compose(ellP(d), new THREE.Quaternion().setFromAxisAngle(new V3(0, 0, 1), a), new V3(1, 1, 1)));
+      g.userData.axis = new V3(Math.cos(a), Math.sin(a), 0);
+      mount(g, null, d, 'bottom');
+    }
+  }
+
+  // 꼬리 ----------------------------------------------------------
+  // 모든 꼬리는 mountTail()을 거쳐 몸통 폴리곤 안으로 자동 매입된다(밑동이 항상 몸에 이어짐).
+  const tw = fixedW('tail'), tp = (...a) => a.map(([x, y, z]) => new V3(x, y, z));
+  const mountTail = (g, base, axis) => {
+    const off = embed(g, torsoF, new V3(0, 0, 1), axis.clone().normalize());
+    add('tail', g, 'body', tw, { tailBase: base.clone().add(off) });
+  };
+  if (sp.tail === 'long') {   // 고양이: 바닥을 향해 느슨하게 처지다가 끝만 살짝 다시 위로 솟는 고무 파이프 모양 원통
+    const ctrl = tp([0, 0.17, -0.1], [0, 0.16, -0.17], [0.005, 0.135, -0.24], [0.015, 0.095, -0.3], [0.03, 0.06, -0.345], [0.045, 0.05, -0.385], [0.06, 0.065, -0.415], [0.07, 0.092, -0.43]);
+    const b0 = ctrl[0].clone();
+    const pts = smoothPath(ctrl.map(p => b0.clone().add(p.clone().sub(b0).multiplyScalar(0.8))), 20);   // 길이 80%
+    mountTail(pipe(pts, 0.034, 10), pts[0], pts[1].clone().sub(pts[0]));
+  } else if (sp.tail === 'spindle') {   // 강아지·늑대·여우: 럭비공 모양 — 몸쪽은 가늘고, 중간이 가장 굵고, 끝은 다시 가늘어져 뾰족하다
+    const { tl, tr, rise } = sp, y0 = 0.185;
+    const pts = smoothPath(tp([0, y0, -0.1], [0, y0 + rise * 0.15, -0.1 - tl * 0.35], [0, y0 + rise * 0.5, -0.1 - tl * 0.7], [0, y0 + rise, -0.1 - tl]), 18);
+    const n = pts.length - 1;
+    const rad = pts.map((_, i) => { const t = i / n; return 0.012 * (1 - t) + tr * Math.pow(Math.max(0, Math.sin(Math.PI * Math.pow(t, 1.2))), 1.1); });   // 끝 반지름 0 → 뾰족
+    mountTail(pipe(pts, rad, 12), pts[0], pts[1].clone().sub(pts[0]));
+  } else if (sp.tail === 'drop') {   // 햄스터: 작고 짧은 물방울 꼬리(몸쪽이 둥글고 끝이 뾰족)
+    const dir3 = new V3(0, 0.3, -1).normalize(), len = 0.085;
+    const g = superGeo([len / 2, 0, 0], [len / 2, 0.034, 0.034], 2, 14, 9, { taper: x => 1.0 - 0.78 * Math.pow((x + 1) / 2, 0.9) });
+    g.applyMatrix4(new THREE.Matrix4().compose(new V3(0, 0.18, -0.115), new THREE.Quaternion().setFromUnitVectors(new V3(1, 0, 0), dir3), new V3(1, 1, 1)));
+    mountTail(g, new V3(0, 0.18, -0.115), dir3);
+  } else {
+    const r = sp.tailR * 1.2, c = new V3(0, 0.18, -0.12 - r * 0.55);
+    mountTail(blob(c.toArray(), [r, r, r], 14, 9), c, new V3(0, 0, -1));
+  }
+
+  // 긴 티셔츠 ------------------------------------------------------
+  if (s.shirtOn) {
+    add('shirt', superGeo([0, 0.2, 0], [TH[0] + 0.022, 0.15, TH[2] + 0.02], TN, pl.tw, pl.th), 'shirt', torsoW);
+    for (const [sx, side] of [[1, 'left'], [-1, 'right']]) {
+      add('shirt', tear(sx * 0.205, 0.27, 0.13, 0.1, 0.09, sx), 'shirt', armW(side));
+    }
+  }
+
+  // 안경: 하나로 이어진 프레임 (렌즈 테 → 코 받침 → 렌즈 테 → 다리)
+  if (s.glasses !== 'none') {
+    // 얼굴 평면 좌표(fx,fy ∈ [-1,1])를 둥근 사각 머리 표면 위(4.5% 띄움)의 3D 점으로 변환
+    const surfPt = (fx, fy, k = 1.045) => {
+      const z = Math.pow(Math.max(0, 1 - Math.pow(Math.abs(fx), HN) - Math.pow(Math.abs(fy), HN)), 1 / HN);
+      return new V3(HC.x + HA * fx * k, HC.y + HB * fy * k, HC.z + HZ * z * k);
+    };
+    const lensCY = -0.12, lensCX = 0.40, N = 16;
+    const shape = (t, sx) => {
+      const c = Math.cos(t), si = Math.sin(t);
+      switch (s.glasses) {
+        case 'round': return [0.26 * c, 0.26 * si];
+        case 'oval': return [0.3 * c, 0.22 * si];
+        case 'square': { const f = v => Math.sign(v) * Math.pow(Math.abs(v), 0.5); return [0.26 * f(c), 0.23 * f(si)]; }
+        default: { // cat-eye: 바깥쪽 위가 올라간 모양
+          const x = 0.28 * c, y = 0.21 * si, out = clamp((x * sx) / 0.28, 0, 1);
+          return [x, y + 0.12 * out * out * (si > -0.3 ? 1 : 0.3)];
+        }
+      }
+    };
+    const R = 0.0085, SEG = 6, joints = [], inner = {};
+    for (const sx of [1, -1]) {
+      // 코 쪽(안쪽) 점에서 시작해 한 바퀴 돌아 같은 점으로 닫히는 렌즈 테
+      const t0 = sx === 1 ? Math.PI : 0;
+      const ring = Array.from({ length: N + 1 }, (_, i) => {
+        const [x, y] = shape((i / N) * Math.PI * 2 + t0, sx);
+        return surfPt(sx * lensCX + x, lensCY + y);
+      });
+      ring[N] = ring[0].clone();
+      add('glasses', tubeGeo(ring, Array(N + 1).fill(R), SEG), 'glasses', fixedW('head'));
+      inner[sx] = ring[0];
+      joints.push(ring[0]);   // (귀 위치와 겹치므로 안경 다리는 없음)
+    }
+    // 코 받침: 두 렌즈의 안쪽 점에서 정확히 이어지는 하나의 연결 요소
+    add('glasses', tubeGeo([inner[1].clone(), surfPt(0.07, lensCY + 0.04), surfPt(0, lensCY + 0.045), surfPt(-0.07, lensCY + 0.04), inner[-1].clone()], [R, R, R, R, R], SEG), 'glasses', fixedW('head'));
+    for (const P of joints) add('glasses', blob(P.toArray(), [R * 1.3, R * 1.3, R * 1.3], 8, 6), 'glasses', fixedW('head'));
+  }
+
+  // 리본 ----------------------------------------------------------
+  const bow = (P, n, { roll = 0, k = 1, w = fixedW('head') } = {}) => {
+    const wing = sg => T(blob([sg * 0.055 * k, 0, 0], [0.06 * k, 0.042 * k, 0.022 * k], 12, 8, [0, 0, sg * 0.3]), [0, 0, 0]);
+    const g1 = facing(wing(1), P.clone().addScaledVector(n, 0.012), n, roll);
+    const g2 = facing(wing(-1), P.clone().addScaledVector(n, 0.012), n, roll);
+    const knot = facing(blob([0, 0, 0], [0.026 * k, 0.026 * k, 0.024 * k], 10, 7), P.clone().addScaledVector(n, 0.016), n, roll);
+    [g1, g2, knot].forEach(g => add('ribbon', g, 'ribbon', w));
+  };
+  const rd = (x, y, z, o) => { const d = dir(x, y, z); return [ellP(d), ellN(d)]; };
+  // 목 리본: 턱이 아니라 몸통 앞면, 얼굴 바로 아래에 붙는 작은 나비넥타이
+  if (s.ribbons.neck) {
+    const y = 0.262, dy = Math.abs(y - (s.shirtOn ? 0.2 : TC.y)) / (s.shirtOn ? 0.15 : TH[1]);
+    const zs = (s.shirtOn ? TH[2] + 0.02 : TH[2]) * Math.pow(Math.max(0.001, 1 - Math.pow(dy, TN)), 1 / TN);
+    bow(new V3(0, y, zs + 0.006), new V3(0, 0.12, 1).normalize(), { k: 0.8, w: fixedW('chest') });
+  }
+
+  // 머리 위 장식 / 등 장식 -------------------------------------------
+  addOrnaments(s, add, fixedW, dir);
+
+  return parts;
+}
+
+/* ------------------------------------------------------------ 아틀라스 (얼굴/몸통 텍스처 + 팔레트) */
+const AW = 1024;
+// 얼굴 텍스처를 1024x512로 키워 눈·입 선의 끝이 둥글고 매끄럽게 보이게 한다.
+const HEADR = { x: 0, y: 0, w: 1024, h: 512 }, TORSOR = { x: 0, y: 512, w: 384, h: 192 };
+const LEGR = { x: 0, y: 704, w: 192, h: 96 }, ARMR = { x: 0, y: 800, w: 192, h: 96 };
+const PAL = { x: 384, y: 512, cols: 40, cell: 16 };
+// 텍스처 픽셀 → 슈퍼타원체 표면의 정규화 좌표(반지름 1 기준). 정면(+z)은 평평한 얼굴 평면에 가깝다.
+const dirTable = (R, nExp) => {
+  const n = R.w * R.h, dx = new Float32Array(n), dy = new Float32Array(n), dz = new Float32Array(n);
+  const u = new V3();
+  for (let py = 0; py < R.h; py++) {
+    const th = (py / (R.h - 1)) * Math.PI, st = Math.sin(th), ct = Math.cos(th);
+    for (let px = 0; px < R.w; px++) {
+      const ph = -Math.PI / 2 + (px / (R.w - 1)) * Math.PI * 2, i = py * R.w + px;
+      u.set(-Math.cos(ph) * st, ct, Math.sin(ph) * st);
+      const t = supT(u, nExp);
+      dx[i] = u.x * t; dy[i] = u.y * t; dz[i] = u.z * t;
+    }
+  }
+  return { dx, dy, dz };
+};
+const HEAD_DIR = dirTable(HEADR, HN), TORSO_DIR = dirTable(TORSOR, TN), LEG_DIR = dirTable(LEGR, 3.0), ARM_DIR = dirTable(ARMR, 2.2);
+const E = 0.007;
+const aa = sd => 1 - sstep(-E, E, sd);
+const ellSD = (x, y, cx, cy, rx, ry) => (Math.hypot((x - cx) / rx, (y - cy) / ry) - 1) * Math.min(rx, ry);
+
+/* 내 얼굴 그리기: 얼굴 평면(정면에서 본 평평한 얼굴)의 직사각형을 그림 한 장으로 다룬다.
+   x: -0.85~0.85, y: -0.60~0.25 (가로:세로 = 2:1). 템플릿 PNG와 업로드 그림이 모두 이 영역에 대응한다. */
+const FACE_PLANE = { x0: -0.85, x1: 0.85, y0: -0.6, y1: 0.25, w: 1024, h: 512 };
+const PLANE_DIR = (() => {
+  const { x0, x1, y0, y1, w, h } = FACE_PLANE, n = w * h, dx = new Float32Array(n), dy = new Float32Array(n), dz = new Float32Array(n).fill(1);
+  for (let py = 0; py < h; py++) for (let px = 0; px < w; px++) { dx[py * w + px] = x0 + (x1 - x0) * (px + 0.5) / w; dy[py * w + px] = y1 - (y1 - y0) * (py + 0.5) / h; }
+  return { dx, dy, dz };
+})();
+// plane=true: 몸·무늬·볼터치·점 없이 눈·입만 투명 배경에 그려 템플릿 PNG로 쓴다
+function paintHead(s, plane = false) {
+  const R = plane ? FACE_PLANE : HEADR, img = new ImageData(R.w, R.h), px = img.data, { dx, dy, dz } = plane ? PLANE_DIR : HEAD_DIR;
+  const cf = !plane && s.customFace ? s.customFace : null;
+  const sp = SPECIES[s.species];
+  const body = h2r(s.body), eye = h2r(s.eye), dark = h2r('#3b2a2e'), lid = h2r('#2b2226'), blush = h2r('#ff9fb0'), mole = h2r(s.moleColor), white = [255, 255, 255];
+  const pat = id => (s.patterns[id].on ? h2r(s.patterns[id].color) : null);
+  const P = { forehead: pat('forehead'), stripes: pat('stripes'), eyepatchL: pat('eyepatchL'), eyepatchR: pat('eyepatchR'), muzzle: pat('muzzle') };
+  const EX = 0.40, EY = -0.12;                                  // 눈 중심(얼굴 평면 좌표)
+  const capsule = (px, py, ax, ay, bx, by, r) => {
+    const pax = px - ax, pay = py - ay, bax = bx - ax, bay = by - ay;
+    const h = clamp((pax * bax + pay * bay) / (bax * bax + bay * bay), 0, 1);
+    return Math.hypot(pax - bax * h, pay - bay * h) - r;
+  };
+  // 치비 눈: 눈동자는 세로로 살짝 긴 둥근 네모, 눈꺼풀은 두꺼운 윗선(바깥쪽이 살짝 처지고 끝이 튀어나옴)
+  const rbox = (x, y, hx, hy, r) => {
+    const qx = Math.abs(x) - hx + r, qy = Math.abs(y) - hy + r;
+    return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
+  };
+  const eyeLocal = (x, y, sx) => [(x - sx * EX) * sx, y - EY];   // 바깥쪽이 +x
+  // 눈 모양(스케치 기준). 눈 전체가 한 가지 색(눈 색)이다.
+  //  기본눈: 둥그라미(세로 타원) / 네모(둥근 네모) + 하이라이트 | 모에눈: 둥근 블록 + 위로 튀어나온 눈꺼풀 막대(기본/화남/쳐짐)
+  //  감은눈: 굵은 선(기본) / 위로 휜 호(웃음) / 안쪽이 낮은 선(화남) / 바깥이 낮은 선(쳐짐)
+  const rotq = (x, y, th) => [x * Math.cos(th) + y * Math.sin(th), -x * Math.sin(th) + y * Math.cos(th)];   // 도형을 th만큼 반시계로 돌려 보이게 하는 역변환
+  const EF = s.eyeFam, EV = s.eyeVar;
+  // 위쪽 반원 호(양 끝 둥근 마감)까지의 부호 있는 거리
+  const arcSD = (x, y, cx, cy, R, t) => {
+    const dx = x - cx, dy = y - cy;
+    if (dy >= 0) return Math.abs(Math.hypot(dx, dy) - R) - t;
+    return Math.min(Math.hypot(x - (cx + R), y - cy), Math.hypot(x - (cx - R), y - cy)) - t;
+  };
+  const eyeCov = (qx, qy) => {
+    if (EF === 'basic') return EV === 'square' ? aa(rbox(qx, qy, 0.125, 0.16, 0.06)) : aa(ellSD(qx, qy, 0, 0, 0.13, 0.19));
+    if (EF === 'moe') return aa(rbox(qx, qy, 0.125, 0.165, 0.055));   // 눈 색이 입혀지는 네모난 눈(기울지 않음)
+    // 감은눈: 모든 선은 끝이 둥글게(캡슐) 마감된다. 웃음은 호의 양 끝도 둥글게 닫는다.
+    const th = EV === 'angry' ? 0.3 : EV === 'droop' ? -0.3 : 0, [x, y] = rotq(qx, qy, th);
+    if (EV === 'smile') return aa(arcSD(x, y, 0, -0.07, 0.13, 0.022));
+    return aa(capsule(x, y, -0.15, 0, 0.15, 0, 0.022));
+  };
+  // 모에눈 눈꺼풀(눈매) 막대: 눈 색과 상관없이 검정 고정. 막대 중심을 눈 윗면보다 살짝 아래(0.155)에 두어 각도가 바뀌어도 눈 윗부분에 항상 겹쳐 붙는다.
+  const BAR_TH = EV === 'angry' ? 0.22 : EV === 'droop' ? -0.22 : 0;
+  const barCov = (qx, qy) => { const [bx, by] = rotq(qx, qy - 0.155, BAR_TH); return aa(rbox(bx, by, 0.19, 0.03, 0.016)); };
+  // 속눈썹: 눈(눈매)의 윤곽 위 한 점에서 시작해 바깥쪽으로 뻗는 둥근 선. 시작점이 눈 도형 안쪽에 있어 항상 눈과 이어진다.
+  //  frame 0: 눈 좌표 / 1: 모에눈 막대 좌표 / 2: 감은눈 선 좌표(기울기 적용). 기본눈·감은눈은 눈 색, 모에눈은 눈매와 같은 검정.
+  const LASH_R = 0.019, lashSegs = [];
+  const lash = (frame, ax, ay, dx0, dy0, len) => {
+    const m = Math.hypot(dx0, dy0), ux = dx0 / m, uy = dy0 / m;
+    lashSegs.push([frame, ax, ay, ax + ux * len, ay + uy * len]);
+  };
+  const baseSD = (x, y) => (EF === 'basic' && EV === 'round' ? ellSD(x, y, 0, 0, 0.13, 0.19) : EF === 'basic' ? rbox(x, y, 0.125, 0.16, 0.06) : rbox(x, y, 0.125, 0.165, 0.055));
+  const edgeAt = deg => {   // 눈 중심에서 deg 방향으로 쏜 선이 눈 윤곽과 만나는 점과 바깥 법선
+    const t = deg * Math.PI / 180, cx = Math.cos(t), cy = Math.sin(t);
+    let lo = 0, hi = 0.5;
+    for (let k = 0; k < 30; k++) { const m = (lo + hi) / 2; if (baseSD(cx * m, cy * m) < 0) lo = m; else hi = m; }
+    const x = cx * lo, y = cy * lo, e = 1e-3;
+    let nx = baseSD(x + e, y) - baseSD(x - e, y), ny = baseSD(x, y + e) - baseSD(x, y - e);
+    const nm = Math.hypot(nx, ny) || 1;
+    return [x, y, nx / nm, ny / nm];
+  };
+  // 참고 도안 기준(모든 눈 공통, x+가 바깥쪽): 짧고 굵은 선.
+  //  윗 1개: 바깥 윗모서리에서 바깥쪽 위로 비스듬히 / 윗 2개: 그 선 + 안쪽에 거의 수직으로 한 개 더
+  //  아래 1개: 바깥 아랫모서리에서 바깥쪽 아래로 대각선 / 아래 2개: 아래로 곧게 뻗는 짧은 선 두 개
+  const LU = { o: [0.5, 0.87], i: [0.2, 0.98] };   // 윗속눈썹 방향(바깥/안쪽)
+  const addLashes = (side, n) => {   // side: +1 윗속눈썹 / -1 아래속눈썹
+    if (!n) return;
+    if (EF === 'closed') {
+      if (side < 0) return;   // 감은눈은 윗속눈썹만
+      if (EV === 'smile') {   // 호의 바깥쪽 위에서 호의 바깥 방향(방사)으로
+        [28, 50].slice(0, n).forEach(a => {
+          const t = a * Math.PI / 180, c = Math.cos(t), sn = Math.sin(t);
+          lash(0, 0.13 * c, -0.07 + 0.13 * sn, c, sn, 0.062);
+        });
+      } else {                // 선의 바깥쪽 가까이(중심선 위)에서 위로. 선의 기울기를 따라간다
+        lash(2, 0.115, 0, LU.o[0], LU.o[1], 0.062);
+        if (n > 1) lash(2, 0.06, 0, LU.i[0], LU.i[1], 0.058);
+      }
+    } else if (EF === 'moe' && side > 0) {   // 윗속눈썹: 눈매 막대의 바깥 끝에서 시작해 막대 각도를 따라간다
+      lash(1, 0.16, 0, LU.o[0], LU.o[1], 0.07);
+      if (n > 1) lash(1, 0.10, 0, LU.i[0], LU.i[1], 0.062);
+    } else {                                  // 눈 도형 윤곽의 바깥 모서리 / 가장자리에서 시작(안쪽으로 파묻힌 점)
+      const sq = !(EF === 'basic' && EV === 'round');
+      const at = (deg, d, len) => { const [x, y, nx, ny] = edgeAt(deg); lash(0, x - nx * 0.025, y - ny * 0.025, d[0], d[1], len); };
+      if (side > 0) {
+        at(sq ? 52 : 45, LU.o, 0.07);
+        if (n > 1) at(sq ? 74 : 72, LU.i, 0.062);
+      } else if (n === 1) {
+        at(sq ? -52 : -45, [0.75, -0.66], 0.075);
+      } else {
+        at(sq ? -56 : -55, [0.3, -0.95], 0.062);
+        at(sq ? -76 : -78, [0.0, -1], 0.062);
+      }
+    }
+  };
+  addLashes(1, s.lashTop); addLashes(-1, s.lashUnder);
+  const lashCol = EF === 'moe' ? lid : eye;
+  const lashCov = (qx, qy) => {
+    let sd = 9;
+    for (const [f, ax, ay, bx, by] of lashSegs) {
+      let x = qx, y = qy;
+      if (f === 1) [x, y] = rotq(qx, qy - 0.155, BAR_TH);
+      else if (f === 2) [x, y] = rotq(qx, qy, EV === 'angry' ? 0.3 : EV === 'droop' ? -0.3 : 0);
+      sd = Math.min(sd, capsule(x, y, ax, ay, bx, by, LASH_R));
+    }
+    return aa(sd);
+  };
+  const hiCov = (x, y, sx) => (EV === 'square'
+    ? aa(ellSD(x, y, sx * EX - 0.035, EY + 0.06, 0.03, 0.04))
+    : aa(ellSD(x, y, sx * EX - 0.04, EY + 0.075, 0.035, 0.045)));   // 하이라이트는 스케치처럼 두 눈 모두 화면 왼쪽 위
+  // 입 모양: 다문입 / 웃는입 / 3자입(ω) / 비웃음(한쪽 입꼬리만 올라감)
+  const MY = -0.43;
+  const mouthCov = (x, y) => {
+    switch (s.mouth) {
+      case 'smile': return y < -0.355 ? aa(Math.abs(Math.hypot(x, y + 0.355) - 0.075) - 0.0095) : 0;
+      case 'omega': {
+        let c = 0;
+        for (const sx of [1, -1]) { const qx = x - sx * 0.056, qy = y - MY + 0.005; if (qy < 0.004) c = Math.max(c, aa(Math.abs(Math.hypot(qx, qy) - 0.056) - 0.0095)); }
+        return c;
+      }
+      case 'smirk': return aa(Math.min(capsule(x, y, -0.07, MY - 0.005, 0.01, MY - 0.005, 0.0095), capsule(x, y, 0.01, MY - 0.005, 0.05, MY + 0.002, 0.0095), capsule(x, y, 0.05, MY + 0.002, 0.075, MY + 0.028, 0.0095)));
+      default: return aa(capsule(x, y, -0.075, MY, 0.075, MY, 0.0105));
+    }
+  };
+  let r = 0, g = 0, b = 0;   // 픽셀마다 클로저를 새로 만들지 않도록 루프 밖에서 한 번만 정의
+  let ca = 0;   // plane 모드에서 쌓이는 불투명도(이때 r,g,b는 불투명도를 곱한 값)
+  const over = (c, a) => { if (a > 0.003) { r += (c[0] - r) * a; g += (c[1] - g) * a; b += (c[2] - b) * a; ca += (1 - ca) * a; } };
+  const CW = 512, CH = 256, cpm = cf ? cf.pm : null;   // 업로드 그림(곱한 알파, 512x256)을 쌍선형으로 읽는다
+  const FP = FACE_PLANE, cfRGB = [0, 0, 0];
+  for (let i = 0; i < R.w * R.h; i++) {
+    const x = dx[i], y = dy[i], z = dz[i];
+    if (plane) { r = 0; g = 0; b = 0; ca = 0; } else { r = body[0]; g = body[1]; b = body[2]; }
+    const front = sstep(0.3, 0.6, z);
+    if (plane) { /* 눈·입만 */ } else {
+    if (P.forehead) over(P.forehead, sstep(0.6, 0.7, y));
+    if (P.stripes) for (const cx of [-0.3, 0, 0.3]) over(P.stripes, aa(Math.abs(x - cx) - 0.05) * sstep(0.45, 0.55, y) * front);
+    if (P.eyepatchL) over(P.eyepatchL, aa(ellSD(x, y, 0.40, -0.1, 0.32, 0.34)) * front);    // 캐릭터 기준 왼쪽 = +x
+    if (P.eyepatchR) over(P.eyepatchR, aa(ellSD(x, y, -0.40, -0.1, 0.32, 0.34)) * front);
+    if (P.muzzle) over(P.muzzle, aa(ellSD(x, y, 0, -0.42, 0.34, 0.24)) * front);
+    }
+    if (z > 0.35) {
+      if (!plane) {
+        // 볼터치: 그라데이션 없이 또렷한 경계의 단색(셀 채색)
+        if (s.blush) for (const sx of [1, -1]) over(blush, aa(ellSD(x, y, sx * 0.64, -0.40, 0.17, 0.095)));
+        // 점은 이전 크기의 30%(반지름 0.032→0.0096). 작아서 경계 번짐도 같이 줄인다
+        const aam = sd => 1 - sstep(-0.0035, 0.0035, sd);
+        if (s.moles.eyeL) over(mole, aam(Math.hypot(x - 0.44, y + 0.36) - 0.0096));
+        if (s.moles.eyeR) over(mole, aam(Math.hypot(x + 0.44, y + 0.36) - 0.0096));
+        if (s.moles.mouthL) over(mole, aam(Math.hypot(x - 0.17, y + 0.47) - 0.009));
+        if (s.moles.mouthR) over(mole, aam(Math.hypot(x + 0.17, y + 0.47) - 0.009));
+      }
+      if (!cf) over(dark, mouthCov(x, y));
+      if (!cf) for (const sx of [1, -1]) {
+        const [qx, qy] = eyeLocal(x, y, sx);
+        const cov = eyeCov(qx, qy);
+        over(eye, cov);
+        if (EF === 'moe') over(lid, barCov(qx, qy));
+        if (lashSegs.length && Math.abs(qx) < 0.5 && Math.abs(qy) < 0.5) over(lashCol, lashCov(qx, qy));
+        if (EF === 'basic' && cov > 0) over(white, hiCov(x, y, sx) * cov);   // 하이라이트는 속눈썹 위에 마지막으로 칠해 가려지지 않게 한다
+      }
+    }
+    if (cpm && z > 0.25) {   // 내 얼굴: 얼굴 평면 좌표로 그림을 읽어 맨 위에 덮는다(몸 색·무늬·볼터치·점이 그 아래에 남는다)
+      const fu = (x - FP.x0) / (FP.x1 - FP.x0) * CW - 0.5, fv = (FP.y1 - y) / (FP.y1 - FP.y0) * CH - 0.5;
+      if (fu > -1 && fv > -1 && fu < CW && fv < CH) {
+        const u0 = Math.floor(fu), v0 = Math.floor(fv), tu = fu - u0, tv = fv - v0;
+        let pr = 0, pg = 0, pb = 0, pa = 0;
+        for (let k = 0; k < 4; k++) {
+          const uu = u0 + (k & 1), vv = v0 + (k >> 1);
+          if (uu < 0 || vv < 0 || uu >= CW || vv >= CH) continue;
+          const wgt = ((k & 1) ? tu : 1 - tu) * ((k >> 1) ? tv : 1 - tv), o = (vv * CW + uu) * 4;
+          pr += cpm[o] * wgt; pg += cpm[o + 1] * wgt; pb += cpm[o + 2] * wgt; pa += cpm[o + 3] * wgt;
+        }
+        const a = pa * sstep(0.25, 0.4, z);
+        if (a > 0.003) { cfRGB[0] = pr / pa; cfRGB[1] = pg / pa; cfRGB[2] = pb / pa; over(cfRGB, a); }
+      }
+    }
+    if (plane) {
+      const o = i * 4;
+      if (ca > 0.003) { px[o] = r / ca; px[o + 1] = g / ca; px[o + 2] = b / ca; px[o + 3] = ca * 255; } else { px[o + 3] = 0; }
+    } else { px[i * 4] = r; px[i * 4 + 1] = g; px[i * 4 + 2] = b; px[i * 4 + 3] = 255; }
+  }
+  return img;
+}
+function paintTorso(s) {
+  const R = TORSOR, img = new ImageData(R.w, R.h), px = img.data, body = h2r(s.body);
+  for (let i = 0; i < R.w * R.h; i++) { px[i * 4] = body[0]; px[i * 4 + 1] = body[1]; px[i * 4 + 2] = body[2]; px[i * 4 + 3] = 255; }
+  return img;
+}
+// 팔·다리 전용 텍스처: '손발 끝' 무늬를 삼각형 단위가 아니라 픽셀 단위로 칠해 경계가 깨지지 않게 한다.
+function paintLimb(s, kind) {
+  const R = kind === 'leg' ? LEGR : ARMR, { dx, dy } = kind === 'leg' ? LEG_DIR : ARM_DIR;
+  const img = new ImageData(R.w, R.h), px = img.data, body = h2r(s.body);
+  const sock = s.patterns.socks.on ? h2r(s.patterns.socks.color) : null;
+  for (let i = 0; i < R.w * R.h; i++) {
+    let r = body[0], g = body[1], b = body[2];
+    if (sock) {
+      // 다리: 아래쪽 28% / 팔: 바깥쪽 끝 21%(몸통 쪽 시작 부분에는 무늬 없음)
+      const a = kind === 'leg' ? 1 - sstep(-0.43, -0.39, dy[i]) : sstep(0.58, 0.62, dx[i]);
+      r += (sock[0] - r) * a; g += (sock[1] - g) * a; b += (sock[2] - b) * a;
+    }
+    px[i * 4] = r; px[i * 4 + 1] = g; px[i * 4 + 2] = b; px[i * 4 + 3] = 255;
+  }
+  return img;
+}
+
+/* ------------------------------------------------------------ 컴파일(정점/법선/UV/스킨) */
+const near = (p, c, r) => Math.hypot(p.x - c[0], p.y - c[1], p.z - c[2]) < r;
+const TRI_HIT = {
+  ear_tip: (p, part) => part.kind === 'ear' && part.tipTest(p),
+  tail_tip: (p, part) => part.kind === 'tail' && part.tipTest(p),
+};
+
+function compile(parts, s) {
+  const pl = POLY[s.poly], f = pl.f;
+  const sp = SPECIES[s.species];
+  const palMap = new Map(), palList = [];
+  const palIndex = hex => { let i = palMap.get(hex); if (i === undefined) { i = palList.length; palMap.set(hex, i); palList.push(hex); } return i; };
+  const baseOf = {
+    body: s.body, inner: sp.inner, shirt: s.shirt, glasses: s.glassesColor, ribbon: s.ribbonColor,
+    orn0: s.headOrnColors[0], orn1: s.headOrnColors[1], orn2: s.backOrnColor, green: '#5aa469', cream: '#f3ead8', white: '#ffffff',
+  };
+
+  const pos = [], nor = [], uv = [], sIdx = [], sW = [];
+  const a = new V3(), b = new V3(), c = new V3(), fn = new V3(), cen = new V3();
+  const sa = new V3(), sb = new V3(), sc = new V3();
+  for (const part of parts) {
+    const g = part.geo, pa = g.attributes.position, na = g.attributes.normal, ua = g.attributes.uv;
+    g.computeBoundingBox();
+    const bb = g.boundingBox, h = bb.max.y - bb.min.y;
+    if (part.kind === 'ear') part.tipTest = part.tip === 'bottom' ? p => p.y < bb.min.y + 0.4 * h : p => p.y > bb.min.y + 0.62 * h;
+    if (part.kind === 'tail') {
+      let dmax = 0;
+      for (let i = 0; i < pa.count; i++) dmax = Math.max(dmax, part.tailBase.distanceTo(new V3().fromBufferAttribute(pa, i)));
+      part.tipTest = p => part.tailBase.distanceTo(p) > 0.7 * dmax;
+    }
+    const ctrFn = g.userData.ctr;
+    for (let i = 0; i + 2 < pa.count; i += 3) {
+      a.fromBufferAttribute(pa, i); b.fromBufferAttribute(pa, i + 1); c.fromBufferAttribute(pa, i + 2);
+      fn.copy(b).sub(a).cross(c.clone().sub(a));
+      if (fn.lengthSq() < 1e-14) continue;
+      fn.normalize();
+      cen.copy(a).add(b).add(c).multiplyScalar(1 / 3);
+      const ix = [0, 1, 2];
+      if (ctrFn && fn.dot(cen.clone().sub(ctrFn(cen))) < 0) { ix[1] = 2; ix[2] = 1; fn.negate(); }
+      const V = [a.clone(), b.clone(), c.clone()];
+      const N = [0, 1, 2].map(k => (na ? new V3().fromBufferAttribute(na, i + k) : fn.clone()));
+
+      let cellUV = null;
+      if (!part.map) {
+        let col = baseOf[part.col];
+        if (part.col === 'body') for (const [pid] of PATTERNS) { const st = s.patterns[pid]; if (st.on && TRI_HIT[pid] && TRI_HIT[pid](cen, part)) col = st.color; }
+        const pi = palIndex(col);
+        cellUV = [(PAL.x + (pi % PAL.cols) * PAL.cell + 8) / AW, (PAL.y + Math.floor(pi / PAL.cols) * PAL.cell + 8) / AW];
+      }
+      for (const k of ix) {
+        const v = V[k];
+        pos.push(v.x, v.y, v.z);
+        const n = N[k].clone().multiplyScalar(1 - f).addScaledVector(fn, f).normalize();
+        nor.push(n.x, n.y, n.z);
+        if (cellUV) uv.push(cellUV[0], cellUV[1]);
+        else {
+          const u = part.mirrorU ? 1 - ua.getX(i + k) : ua.getX(i + k), vv = ua.getY(i + k), R = { head: HEADR, torso: TORSOR, leg: LEGR, arm: ARMR }[part.map];
+          uv.push((R.x + 0.5 + u * (R.w - 1)) / AW, (R.y + 0.5 + (1 - vv) * (R.h - 1)) / AW);
+        }
+        const ws = part.w(v).sort((x, y) => y[1] - x[1]).slice(0, 4), sum = ws.reduce((t, x) => t + x[1], 0);
+        for (let q = 0; q < 4; q++) { sIdx.push(ws[q] ? ws[q][0] : 0); sW.push(ws[q] ? ws[q][1] / sum : 0); }
+      }
+    }
+  }
+  return { pos, nor, uv, sIdx, sW, palList };
+}
+
+function makeAtlas(s, palList) {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = AW;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, AW, AW);
+  ctx.putImageData(paintHead(s), HEADR.x, HEADR.y);
+  ctx.putImageData(paintTorso(s), TORSOR.x, TORSOR.y);
+  ctx.putImageData(paintLimb(s, 'leg'), LEGR.x, LEGR.y);
+  ctx.putImageData(paintLimb(s, 'arm'), ARMR.x, ARMR.y);
+  palList.forEach((hex, i) => { ctx.fillStyle = hex; ctx.fillRect(PAL.x + (i % PAL.cols) * PAL.cell, PAL.y + Math.floor(i / PAL.cols) * PAL.cell, PAL.cell, PAL.cell); });
+  const tex = new THREE.CanvasTexture(cv);
+  tex.flipY = false; tex.generateMipmaps = false;
+  tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearFilter;
+  tex.colorSpace = THREE.SRGBColorSpace; tex.name = 'atlas';
+  return tex;
+}
+
+function makeSkeleton() {
+  const bones = {}, list = [], wpos = {};
+  for (const [name, parent, w] of BONES) {
+    const b = new THREE.Bone();
+    b.name = name; bones[name] = b; wpos[name] = w; list.push(b);
+    if (parent) { bones[parent].add(b); const p = wpos[parent]; b.position.set(w[0] - p[0], w[1] - p[1], w[2] - p[2]); }
+    else b.position.set(...w);
+  }
+  return { bones, list };
+}
+
+// viewer=true: 토온 재질 + 외곽선, false: 내보내기용(표준 재질, MToon은 후처리로 부착)
+function makeCharacter(s, viewer = false) {
+  const parts = buildParts(s);
+  const d = compile(parts, s);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(d.pos, 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(d.nor, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(d.uv, 2));
+  geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(d.sIdx, 4));
+  geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(d.sW, 4));
+  geo.computeBoundingSphere();
+  const tex = makeAtlas(s, d.palList);
+
+  let mat;
+  if (viewer) {
+    const grad = new THREE.DataTexture(new Uint8Array([150, 205, 255]), 3, 1, THREE.RedFormat);
+    grad.minFilter = grad.magFilter = THREE.LinearFilter; grad.needsUpdate = true;
+    mat = new THREE.MeshToonMaterial({ map: tex, gradientMap: grad });
+  } else {
+    mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0 });
+  }
+  mat.name = 'LowPolyAnimal';
+
+  const { bones, list } = makeSkeleton();
+  const mesh = new THREE.SkinnedMesh(geo, mat);
+  mesh.name = 'Body'; mesh.frustumCulled = false;
+  const group = new THREE.Group();
+  group.name = 'LowPolyAnimal';
+  group.add(mesh); group.add(bones.hips);
+  group.updateMatrixWorld(true);
+  const skeleton = new THREE.Skeleton(list);
+  mesh.bind(skeleton);
+
+  const extra = [];
+  if (viewer && s.outline) {
+    const og = new THREE.BufferGeometry();
+    const op = d.pos.slice();
+    for (let i = 0; i < op.length; i += 3) { op[i] += d.nor[i] * 0.0042; op[i + 1] += d.nor[i + 1] * 0.0042; op[i + 2] += d.nor[i + 2] * 0.0042; }
+    og.setAttribute('position', new THREE.Float32BufferAttribute(op, 3));
+    og.setAttribute('skinIndex', geo.getAttribute('skinIndex'));
+    og.setAttribute('skinWeight', geo.getAttribute('skinWeight'));
+    const om = new THREE.SkinnedMesh(og, new THREE.MeshBasicMaterial({ color: '#2b2024', side: THREE.BackSide }));
+    om.frustumCulled = false; om.bind(skeleton);
+    group.add(om); extra.push(og, om.material);
+  }
+  return { group, geo, tex, mat, bones, extra, triangles: d.pos.length / 9 };
+}
+const disposeChar = ch => { ch.geo.dispose(); ch.tex.dispose(); ch.mat.dispose(); ch.extra.forEach(x => x.dispose()); };
+
+/* ------------------------------------------------------------ VRM 내보내기 (MToon) */
+function toVRM(glb, meta, s) {
+  const dv = new DataView(glb);
+  const jsonLen = dv.getUint32(12, true);
+  const json = JSON.parse(new TextDecoder().decode(new Uint8Array(glb, 20, jsonLen)));
+  const binStart = 20 + jsonLen;
+  const binLen = dv.getUint32(binStart, true);
+  const bin = new Uint8Array(glb, binStart + 8, binLen);
+
+  const node = name => {
+    const i = json.nodes.findIndex(n => n.name === name);
+    if (i < 0) throw new Error('본을 찾을 수 없습니다: ' + name);
+    return { node: i };
+  };
+  const humanBones = {};
+  for (const [name] of HUMAN_BONES) humanBones[name] = node(name);
+
+  const mat = json.materials[0];
+  const texIdx = mat.pbrMetallicRoughness.baseColorTexture.index;
+  mat.extensions = mat.extensions || {};
+  mat.extensions.VRMC_materials_mtoon = {
+    specVersion: '1.0',
+    transparentWithZWrite: false, renderQueueOffsetNumber: 0,
+    shadeColorFactor: [0.80, 0.76, 0.86], shadeMultiplyTexture: { index: texIdx },
+    shadingShiftFactor: -0.1, shadingToonyFactor: 0.85, giEqualizationFactor: 0.9,
+    ...(s.outline
+      ? { outlineWidthMode: 'worldCoordinates', outlineWidthFactor: 0.0042, outlineColorFactor: [0.17, 0.125, 0.14], outlineLightingMixFactor: 0 }
+      : { outlineWidthMode: 'none' }),
+  };
+
+  json.extensionsUsed = Array.from(new Set([...(json.extensionsUsed || []), 'VRMC_vrm', 'VRMC_materials_mtoon']));
+  json.extensions = json.extensions || {};
+  json.extensions.VRMC_vrm = {
+    specVersion: '1.0',
+    meta: {
+      name: meta.name, version: '1.0', authors: [meta.author],
+      licenseUrl: 'https://vrm.dev/licenses/1.0/',
+      avatarPermission: 'everyone', commercialUsage: 'personalNonProfit',
+      creditNotation: 'unnecessary', allowRedistribution: false, modification: 'prohibited',
+      allowExcessivelyViolentUsage: false, allowExcessivelySexualUsage: false,
+      allowPoliticalOrReligiousUsage: false, allowAntisocialOrHateUsage: false,
+    },
+    humanoid: { humanBones },
+  };
+
+  const jsonBytes = new TextEncoder().encode(JSON.stringify(json));
+  const jsonPadded = new Uint8Array(Math.ceil(jsonBytes.length / 4) * 4).fill(0x20);
+  jsonPadded.set(jsonBytes);
+  const total = 12 + 8 + jsonPadded.length + 8 + bin.length;
+  const out = new ArrayBuffer(total);
+  const o = new DataView(out);
+  o.setUint32(0, 0x46546C67, true); o.setUint32(4, 2, true); o.setUint32(8, total, true);
+  o.setUint32(12, jsonPadded.length, true); o.setUint32(16, 0x4E4F534A, true);
+  new Uint8Array(out, 20, jsonPadded.length).set(jsonPadded);
+  const b0 = 20 + jsonPadded.length;
+  o.setUint32(b0, bin.length, true); o.setUint32(b0 + 4, 0x004E4942, true);
+  new Uint8Array(out, b0 + 8, bin.length).set(bin);
+  return out;
+}
+
+async function buildVRMBuffer(s, meta) {
+  const ch = makeCharacter(s, false);
+  const scene = new THREE.Scene();
+  scene.add(ch.group);
+  const glb = await new GLTFExporter().parseAsync(scene, { binary: true });
+  const vrm = toVRM(glb, meta, s);
+  disposeChar(ch);
+  return vrm;
+}
+
+/* ------------------------------------------------------------ 뷰어 */
+const view = document.getElementById('view');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });   // 배경은 CSS 그라데이션
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+view.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+scene.add(new THREE.AmbientLight(0xffffff, 1.55));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(1.5, 2.5, 2.2); scene.add(sun);
+const camera = new THREE.PerspectiveCamera(32, 1, 0.05, 20);
+camera.position.set(0.35, 0.62, 2.2);   // 시작 시 정면 보기
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.38, 0);
+controls.enableDamping = true;
+controls.autoRotate = false; controls.autoRotateSpeed = 2.0;   // 자동 회전 기본 OFF
+controls.enablePan = false;   // 이동 없이 회전·확대만: 항상 전신이 가운데에 보이도록
+controls.update();
+scene.add(new THREE.GridHelper(2, 20, 0xd0cde0, 0xe4e2ee));
+
+let current = null, pending = false, lastFitH = 0;
+// 캐릭터 전신(귀 끝~발바닥)이 미리보기에 모두 들어오도록 카메라 거리를 맞춘다. 보는 방향은 유지.
+function fitCamera(dir) {
+  if (!current) return;
+  current.geo.computeBoundingBox();
+  const bb = current.geo.boundingBox, size = bb.getSize(new V3()), c = bb.getCenter(new V3());
+  const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const d = (Math.max((size.y / 2) / t, (size.x / 2) / (t * camera.aspect)) + size.z / 2) * 1.32;   // 아래쪽 버튼 막대에 가려지지 않게 여백
+  const v = dir ? dir.clone() : camera.position.clone().sub(controls.target);
+  if (v.lengthSq() < 1e-6) v.set(0.12, 0.06, 1);
+  v.normalize();
+  c.y -= size.y * 0.06;   // 캐릭터를 살짝 위로 올려 하단 막대와 겹치지 않게
+  controls.target.copy(c);
+  camera.position.copy(c).addScaledVector(v, d);
+  controls.minDistance = d * 0.5; controls.maxDistance = d * 2.4;
+  controls.update();
+  lastFitH = size.y;
+}
+function rebuild() {
+  if (current) { scene.remove(current.group); disposeChar(current); }
+  current = makeCharacter(state, true);
+  scene.add(current.group);
+  applyPose();
+  current.geo.computeBoundingBox();
+  const h = current.geo.boundingBox.getSize(new V3()).y;
+  if (Math.abs(h - lastFitH) > 0.004) fitCamera();   // 귀 길이가 달라지는 동물 변경 시 다시 맞춤
+}
+const rebuildSoon = () => { if (pending) return; pending = true; requestAnimationFrame(() => { pending = false; rebuild(); }); };
+const POSES = [
+  ['T 포즈', {}],
+  ['팔 내림', { leftUpperArm: [0, 0, -1.2], rightUpperArm: [0, 0, 1.2] }],
+  ['걷기', {
+    leftUpperArm: [0, 0, -1.2], rightUpperArm: [0, 0, 1.2], leftLowerArm: [0, -0.6, 0], rightLowerArm: [0, 0.6, 0],
+    leftUpperLeg: [-0.6, 0, 0], rightUpperLeg: [0.6, 0, 0], leftLowerLeg: [0.7, 0, 0],
+  }],
+  ['앉기', {
+    leftUpperArm: [0, 0, -1.2], rightUpperArm: [0, 0, 1.2],
+    leftUpperLeg: [-1.5, 0, 0], rightUpperLeg: [-1.5, 0, 0], leftLowerLeg: [1.2, 0, 0], rightLowerLeg: [1.2, 0, 0],
+  }],
+];
+let poseIdx = 0;
+function applyPose() {
+  if (!current) return;
+  const p = POSES[poseIdx][1];
+  for (const [name, b] of Object.entries(current.bones)) b.rotation.set(...(p[name] || [0, 0, 0]));
+}
+function resize() {
+  const w = view.clientWidth, h = view.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  fitCamera();
+}
+new ResizeObserver(resize).observe(view);
+resize();
+renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+
+/* ------------------------------------------------------------ UI */
+const $ = id => document.getElementById(id);
+const redraw = () => { renderUI(); rebuildSoon(); };
+function chipRow(elId, opts, isOn, onClick) {
+  const el = $(elId); el.innerHTML = '';
+  for (const [id, label] of opts) {
+    const b = document.createElement('button');
+    b.className = 'chip' + (isOn(id) ? ' on' : '');
+    b.textContent = label;
+    b.onclick = () => { onClick(id); redraw(); };
+    el.appendChild(b);
+  }
+}
+function colorRow(elId, get, set, swatches) {
+  const el = $(elId); el.innerHTML = '';
+  for (const c of swatches || []) {
+    const b = document.createElement('button');
+    b.className = 'sw' + (get().toLowerCase() === c ? ' on' : '');
+    b.style.background = c; b.setAttribute('aria-label', c);
+    b.onclick = () => { set(c); redraw(); };
+    el.appendChild(b);
+  }
+  const inp = document.createElement('input');
+  inp.type = 'color'; inp.value = get(); inp.setAttribute('aria-label', '직접 선택');
+  inp.oninput = () => {
+    set(inp.value); rebuildSoon();
+    el.querySelectorAll('.sw').forEach(s => s.classList.toggle('on', s.getAttribute('aria-label').toLowerCase() === inp.value.toLowerCase()));
+  };
+  ColorPicker.attach(inp, { getLang: () => 'ko' });   // 스포이드가 있는 공용 컬러피커(이전 프로젝트와 동일)
+  el.appendChild(inp);
+}
+function toggleRow(elId, opts, obj) {
+  const el = $(elId); el.innerHTML = '';
+  for (const [k, label] of opts) {
+    const b = document.createElement('button');
+    b.className = 'chip' + (obj[k] ? ' on' : ''); b.textContent = label;
+    b.onclick = () => { obj[k] = !obj[k]; redraw(); };
+    el.appendChild(b);
+  }
+}
+function renderUI() {
+  chipRow('species', SPECIES_ORDER.map(k => [k, SPECIES[k].name]), id => state.species === id, id => applySpecies(id));
+  colorRow('c-body', () => state.body, v => { state.body = v; }, SW.body);
+  colorRow('c-eye', () => state.eye, v => { state.eye = v; }, SW.eye);
+
+  const pe = $('patterns'); pe.innerHTML = '';
+  for (const [pid, label] of PATTERNS) {
+    const st = state.patterns[pid];
+    const row = document.createElement('div'); row.className = 'pat'; row.style.marginBottom = '6px';
+    const b = document.createElement('button');
+    b.className = 'chip' + (st.on ? ' on' : ''); b.textContent = label;
+    b.onclick = () => { st.on = !st.on; redraw(); };
+    const inp = document.createElement('input');
+    inp.type = 'color'; inp.value = st.color; inp.disabled = !st.on; inp.setAttribute('aria-label', label + ' 색');
+    inp.oninput = () => {
+      st.color = inp.value;
+      if (state.patternSync) {   // 동기화 ON: 모든 무늬가 같은 색으로 함께 바뀐다
+        for (const k of Object.keys(state.patterns)) state.patterns[k].color = inp.value;
+        pe.querySelectorAll('input[type=color]').forEach(i => { i.value = inp.value; });
+      }
+      rebuildSoon();
+    };
+    ColorPicker.attach(inp, { getLang: () => 'ko' });
+    row.append(b, inp); pe.appendChild(row);
+  }
+  const ps = $('patSync'); ps.innerHTML = '';
+  const sb = document.createElement('button');
+  sb.className = 'chip' + (state.patternSync ? ' on' : ''); sb.textContent = '무늬 색 동기화 ' + (state.patternSync ? 'ON' : 'OFF');
+  sb.onclick = () => {
+    state.patternSync = !state.patternSync;
+    if (state.patternSync) {   // 켜는 순간, 켜져 있는 첫 무늬(없으면 첫 번째 무늬)의 색으로 모두 맞춘다
+      const first = PATTERNS.map(p => p[0]).find(k => state.patterns[k].on) || PATTERNS[0][0];
+      for (const k of Object.keys(state.patterns)) state.patterns[k].color = state.patterns[first].color;
+    }
+    redraw();
+  };
+  ps.appendChild(sb);
+
+  for (const [elId, list] of [['toggles', [['blush', '볼터치'], ['shirtOn', '옷 입히기']]], ['toggles2', [['outline', '외곽선']]]]) {
+    const te = $(elId); te.innerHTML = '';
+    for (const [key, label] of list) {
+      const b = document.createElement('button');
+      b.className = 'chip' + (state[key] ? ' on' : ''); b.textContent = label + (state[key] ? ' ON' : ' OFF');
+      b.onclick = () => { state[key] = !state[key]; redraw(); };
+      te.appendChild(b);
+    }
+  }
+  colorRow('c-shirt', () => state.shirt, v => { state.shirt = v; }, SW.shirt);
+  toggleRow('moles', MOLES, state.moles);
+  colorRow('c-moleColor', () => state.moleColor, v => { state.moleColor = v; }, SW.moleColor);
+  chipRow('glasses', GLASSES, id => state.glasses === id, id => { state.glasses = id; });
+  colorRow('c-glassesColor', () => state.glassesColor, v => { state.glassesColor = v; }, SW.glassesColor);
+  toggleRow('ribbons', RIBBONS, state.ribbons);
+  colorRow('c-ribbonColor', () => state.ribbonColor, v => { state.ribbonColor = v; }, SW.ribbonColor);
+  chipRow('poly', POLY_OPTS, id => state.poly === id, id => { state.poly = id; });
+  // 머리 위 장식: 최대 2개. 2개가 되면 나머지 칩은 눌리지 않고, 두 번째 장식 색이 나타난다.
+  const ho = $('headOrn'); ho.innerHTML = '';
+  for (const [id, label] of HEAD_ORN) {
+    const on = state.headOrns.includes(id);
+    const b = document.createElement('button');
+    b.className = 'chip' + (on ? ' on' : ''); b.textContent = label;
+    b.onclick = () => {   // 같은 종류(뜨는 것/붙는 것)끼리는 하나만 — 새로 고르면 같은 종류의 이전 선택이 바뀐다
+      const fl = x => ORN_FLOAT.includes(x);
+      state.headOrns = on ? state.headOrns.filter(x => x !== id) : [...state.headOrns.filter(x => fl(x) !== fl(id)), id];
+      redraw();
+    };
+    ho.appendChild(b);
+  }
+  const nm = id => (HEAD_ORN.find(o => o[0] === id) || [0, ''])[1], two = state.headOrns.length === 2;
+  $('hc1').textContent = two ? `장식 색 1 (${nm(state.headOrns[0])})` : '장식 색';
+  $('hc2').textContent = two ? `장식 색 2 (${nm(state.headOrns[1])})` : '장식 색 2';
+  $('hc2wrap').hidden = !two;
+  colorRow('c-headOrnColor', () => state.headOrnColors[0], v => { state.headOrnColors[0] = v; }, SW.headOrnColor);
+  colorRow('c-headOrnColor2', () => state.headOrnColors[1], v => { state.headOrnColors[1] = v; }, SW.headOrnColor);
+  chipRow('eyeFam', EYE_FAMS, id => state.eyeFam === id, id => { state.eyeFam = id; state.eyeVar = EYE_VARS[id][0][0]; });
+  chipRow('eyeVar', EYE_VARS[state.eyeFam], id => state.eyeVar === id, id => { state.eyeVar = id; });
+  chipRow('lashTop', LASH_OPTS, id => state.lashTop === id, id => { state.lashTop = id; });
+  chipRow('lashUnder', LASH_OPTS, id => state.lashUnder === id, id => { state.lashUnder = id; });
+  $('lashUnderWrap').hidden = state.eyeFam === 'closed';   // 감은눈은 윗속눈썹만
+  chipRow('mouth', MOUTHS, id => state.mouth === id, id => { state.mouth = id; });
+  chipRow('backOrn', BACK_ORN, id => state.backOrn === id, id => { state.backOrn = id; });
+  colorRow('c-backOrnColor', () => state.backOrnColor, v => { state.backOrnColor = v; }, SW.backOrnColor);
+
+  // 귀 안쪽 색 켜기/끄기: 안쪽 면이 있는 동물을 골랐을 때만 나타난다
+  if (!(state.species in innerCache)) innerCache[state.species] = buildParts({ ...state, earInner: true }).some(p => p.kind === 'earIn');
+  $('earInnerWrap').hidden = !innerCache[state.species];
+  $('earInner').classList.toggle('on', state.earInner);   // 기본 켜짐, 누를 때마다 켜고 끈다
+  $('earInner').onclick = () => { state.earInner = !state.earInner; redraw(); };
+  // 내 얼굴을 쓰는 동안은 눈 모양·눈 색·속눈썹·입 모양을 잠근다
+  const cf = !!state.customFace;
+  for (const id of ['eyeCard', 'mouthCard', 'eyeColorCard']) $(id).classList.toggle('locked', cf);
+  $('faceUp').textContent = cf ? '다른 얼굴 올리기' : '얼굴 올리기';
+  $('faceOff').hidden = !cf;
+  $('faceUp').classList.toggle('on', cf);
+}
+const innerCache = {};
+// 템플릿: 현재 설정과 상관없이 정해진 눈(기본눈 동그라미 / 모에눈 기본) + 3자입을 투명 배경으로 내보낸다
+function downloadTemplate(kind) {
+  const t = { ...state, customFace: null, eye: '#2a2226', mouth: 'omega', lashTop: 0, lashUnder: 0, eyeFam: kind, eyeVar: kind === 'basic' ? 'round' : 'normal' };
+  const cv = document.createElement('canvas'); cv.width = FACE_PLANE.w; cv.height = FACE_PLANE.h;
+  cv.getContext('2d').putImageData(paintHead(t, true), 0, 0);
+  cv.toBlob(b => {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `face-template-${kind === 'basic' ? 'basic-eye' : 'moe-eye'}.png`;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }, 'image/png');
+}
+$('tplBasic').onclick = () => downloadTemplate('basic');
+$('tplMoe').onclick = () => downloadTemplate('moe');
+$('faceUp').onclick = () => $('faceFile').click();
+$('faceOff').onclick = () => { state.customFace = null; redraw(); };
+$('faceFile').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try {
+    const bmp = await createImageBitmap(f);
+    // 얼굴 평면 비율(2:1)로 512x256에 맞춰 읽는다. 크기가 크면 한 번에 줄이지 않고 반씩 줄여 선이 깨지지 않게 한다.
+    let cur = document.createElement('canvas'); cur.width = bmp.width; cur.height = bmp.height; cur.getContext('2d').drawImage(bmp, 0, 0);
+    while (cur.width > 1024) { const n = document.createElement('canvas'); n.width = cur.width >> 1; n.height = Math.max(1, cur.height >> 1); const c = n.getContext('2d'); c.imageSmoothingQuality = 'high'; c.drawImage(cur, 0, 0, n.width, n.height); cur = n; }
+    const out = document.createElement('canvas'); out.width = 512; out.height = 256;
+    const oc = out.getContext('2d'); oc.imageSmoothingQuality = 'high'; oc.drawImage(cur, 0, 0, 512, 256);
+    const d = oc.getImageData(0, 0, 512, 256).data, pm = new Float32Array(d.length);
+    for (let i = 0; i < d.length; i += 4) { const a = d[i + 3] / 255; pm[i] = d[i] * a; pm[i + 1] = d[i + 1] * a; pm[i + 2] = d[i + 2] * a; pm[i + 3] = a; }
+    state.customFace = { name: f.name, pm };
+    $('status').textContent = `내 얼굴 적용: ${f.name}` + (Math.abs(bmp.width / bmp.height - 2) > 0.02 ? '\n※ 가로:세로가 2:1이 아니어서 그림이 늘어나 보일 수 있어요.' : '');
+    redraw();
+  } catch (err) { $('status').textContent = '그림을 읽지 못했어요. PNG·WebP·JPG 파일을 올려 주세요.'; }
+};
+$('reset').onclick = () => { resetState(); $('spin').checked = false; controls.autoRotate = false; redraw(); $('status').textContent = '모든 설정을 처음 상태로 되돌렸어요.'; };
+const pick = a => a[Math.floor(Math.random() * a.length)];
+$('rand').onclick = () => {
+  applySpecies(pick(SPECIES_ORDER));
+  state.body = pick(SW.body); state.eye = pick(SW.eye);
+  for (const [pid] of PATTERNS) state.patterns[pid].on = Math.random() < 0.2;
+  state.blush = Math.random() < 0.7; state.shirtOn = Math.random() < 0.4; state.shirt = pick(SW.shirt);
+  state.glasses = pick(GLASSES)[0]; state.glassesColor = pick(SW.glassesColor);
+  for (const [k] of RIBBONS) state.ribbons[k] = Math.random() < 0.15;
+  state.ribbonColor = pick(SW.ribbonColor);
+  redraw();
+};
+$('spin').onchange = e => { controls.autoRotate = e.target.checked; };
+function setView(sign) {
+  controls.autoRotate = false; $('spin').checked = false;
+  fitCamera(new V3(0.12 * sign, 0.06, sign));
+}
+document.querySelectorAll('.tab').forEach(t => {
+  t.onclick = () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t));
+    document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + t.dataset.tab));
+  };
+});
+$('pose').onclick = e => { poseIdx = (poseIdx + 1) % POSES.length; e.target.textContent = '포즈 테스트: ' + POSES[poseIdx][0]; applyPose(); };
+$('front-view').onclick = () => setView(1);
+$('back-view').onclick = () => setView(-1);
+
+const statusEl = $('status'), exportBtn = $('export');
+exportBtn.onclick = async () => {
+  exportBtn.disabled = true; statusEl.textContent = '내보내는 중...';
+  try {
+    const name = $('mname').value.trim() || 'my mate';
+    const author = $('author').value.trim() || 'your name';
+    const buf = await buildVRMBuffer(state, { name, author });
+    const url = URL.createObjectURL(new Blob([buf], { type: 'application/octet-stream' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = name.replace(/[\\/:*?"<>|]/g, '_') + '.vrm';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    statusEl.textContent = `완료: ${a.download} (${(buf.byteLength / 1024).toFixed(0)} KB)`;
+  } catch (e) {
+    console.error(e);
+    statusEl.textContent = '내보내기 실패: ' + e.message;
+  } finally { exportBtn.disabled = false; }
+};
+
+renderUI();
+rebuild();
+// 개발용 점검: 귀·꼬리 밑동이 머리/몸통 안으로 들어가 있는지(worst < 1 이면 이어짐)
+function checkAttach(s) {
+  return buildParts(s).filter(p => p.geo.userData.attach).map(p => {
+    // 꼬리가 머리를 뚫는지(headMin<1 이면 뚫음), 바닥 아래로 내려가는지(minY<0)도 함께 점검
+    const pa = p.geo.attributes.position, v = new V3();
+    let headMin = 9, minY = 9, torsoMin = 9;
+    for (let i = 0; i < pa.count; i++) {
+      v.fromBufferAttribute(pa, i); headMin = Math.min(headMin, headF(v)); minY = Math.min(minY, v.y);
+      if (p.tailBase && v.distanceTo(p.tailBase) > 0.09) torsoMin = Math.min(torsoMin, torsoF(v));   // 밑동에서 떨어진 부분이 몸통을 다시 뚫는지
+    }
+    return { kind: p.kind, ...p.geo.userData.attach, headMin: p.kind === 'tail' ? headMin : null, torsoMin: p.kind === 'tail' ? torsoMin : null, minY };
+  });
+}
+window.__animal = { resetState, buildParts, paintHead, HEAD_DIR, state,applySpecies, redraw, rebuild, buildVRMBuffer, makeCharacter, checkAttach, buildParts, headF, camera, controls, THREE, info: () => ({ triangles: current.triangles }) };
+</script>
+</body>
+</html>
