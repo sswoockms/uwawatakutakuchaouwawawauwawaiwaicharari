@@ -23,11 +23,13 @@
   * { box-sizing:border-box; }
   html,body { margin:0; height:100%; background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif; }
   button { font-family:inherit; }
-  #app { display:grid; grid-template-columns:minmax(0,1fr) 580px; height:100%; }
+  /* 화면 전체를 고정: 미리보기(왼쪽)는 움직이지 않고, 오른쪽 설정창 안쪽만 스크롤된다 */
+  html,body { overflow:hidden; }
+  #app { display:grid; grid-template-columns:minmax(0,1fr) 580px; grid-template-rows:minmax(0,1fr); height:100vh; height:100dvh; overflow:hidden; }
 
   /* 미리보기 */
-  #view { position:relative; min-height:320px; background:radial-gradient(120% 90% at 50% 20%, #ffffff 0%, #eeedf3 100%); overflow:hidden; }
-  #view canvas { display:block; width:100%; height:100%; }
+  #view { position:relative; min-height:0; min-width:0; background:radial-gradient(120% 90% at 50% 20%, #ffffff 0%, #eeedf3 100%); overflow:hidden; }
+  #view canvas { position:absolute; inset:0; display:block; width:100%; height:100%; }
   #hint { position:absolute; left:20px; top:16px; font:11px var(--mono); color:var(--muted); pointer-events:none; }
   #viewbar { position:absolute; left:50%; bottom:18px; transform:translateX(-50%); display:flex; gap:6px; padding:6px; background:rgba(255,255,255,.88); backdrop-filter:blur(8px); border:1px solid var(--line); border-radius:999px; box-shadow:var(--shadow); }
   .pill { border:0; background:transparent; color:var(--ink); font-size:13px; font-weight:600; padding:8px 14px; border-radius:999px; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:6px; }
@@ -36,7 +38,7 @@
   .pill input { display:none; }
 
   /* 설정 패널 */
-  #panel { display:flex; flex-direction:column; height:100%; background:var(--bg); border-left:1px solid var(--line); min-width:0; }
+  #panel { display:flex; flex-direction:column; height:100%; min-height:0; overflow:hidden; background:var(--bg); border-left:1px solid var(--line); min-width:0; }
   .head { padding:18px 22px 10px; display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
   .brand { font-size:19px; font-weight:800; color:var(--strong); letter-spacing:-.01em; }
   .brand span { color:var(--accent); }
@@ -50,6 +52,11 @@
   .pane.on { display:flex; }
   .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:22px; padding:16px 16px 18px; box-shadow:var(--shadow); min-width:0; }
+  [hidden] { display:none !important; }
+  /* 카드 안 줄 사이 간격은 레이아웃이 맡는다(작은 보조 라벨 없이 칩 → 색 순서로 읽힌다) */
+  .card { display:flex; flex-direction:column; gap:10px; }
+  .card > h3 { margin-bottom:2px; }
+  #blushOpts, #shirtOpts, #lashUnderWrap, #hc2wrap { display:flex; flex-direction:column; gap:10px; }
   .card h3 { margin:0 0 12px; font:600 11px var(--mono); letter-spacing:.06em; color:var(--muted); text-transform:uppercase; display:flex; align-items:center; justify-content:space-between; gap:8px; }
   .card h4 { margin:14px 0 8px; font:600 11px var(--mono); letter-spacing:.06em; color:var(--muted); }
   .card small { color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0; font-family:inherit; }
@@ -92,10 +99,8 @@
   summary { cursor:pointer; color:var(--ink); font-weight:600; }
 
   @media (max-width:980px) {
-    #app { grid-template-columns:1fr; grid-template-rows:56vh auto; height:auto; }
-    #panel { height:auto; border-left:0; border-top:1px solid var(--line); }
-    #view { height:56vh; }
-    .panes { overflow:visible; }
+    #app { grid-template-columns:minmax(0,1fr); grid-template-rows:46vh minmax(0,1fr); grid-template-rows:46dvh minmax(0,1fr); }
+    #panel { border-left:0; border-top:1px solid var(--line); }
     .tabs { margin-left:14px; margin-right:14px; }
     .grid2 { grid-template-columns:1fr; }
   }
@@ -104,7 +109,6 @@
 <body>
 <div id="app">
   <main id="view">
-    <div id="hint">드래그: 회전 · 휠: 확대/축소</div>
     <div id="viewbar">
       <button class="pill" id="front-view">정면</button>
       <button class="pill" id="back-view">뒷면</button>
@@ -127,14 +131,14 @@
     <div class="panes">
       <section class="pane on" id="pane-animal">
         <div class="card"><h3>동물</h3><div class="chips species" id="species"></div>
-          <div class="chips" id="earInnerWrap" style="margin-top:8px" hidden><button class="chip" id="earInner">귀 안쪽</button></div></div>
-        <div class="card" id="eyeCard"><h3>눈 모양</h3><div class="chips" id="eyeFam"></div><div class="chips" id="eyeVar" style="margin-top:8px"></div>
+          <div class="chips" id="earInnerWrap" hidden><button class="chip" id="earInner">귀 안쪽</button></div></div>
+        <div class="card" id="eyeCard"><h3>눈 모양</h3><div class="chips" id="eyeFam"></div><div class="chips" id="eyeVar"></div>
           <h4>윗 속눈썹</h4><div class="chips" id="lashTop"></div>
           <div id="lashUnderWrap"><h4>아래 속눈썹</h4><div class="chips" id="lashUnder"></div></div></div>
         <div class="card" id="mouthCard"><h3>입 모양</h3><div class="chips" id="mouth"></div></div>
         <div class="card" id="faceCard"><h3>얼굴 직접 업로드</h3>
           <div class="chips"><button class="chip" id="tplBasic">템플릿:기본눈</button><button class="chip" id="tplMoe">템플릿:모에눈</button></div>
-          <div class="chips" style="margin-top:8px"><button class="chip" id="faceUp">얼굴 올리기</button><button class="chip" id="faceOff" hidden>내 얼굴 해제</button></div>
+          <div class="chips"><button class="chip" id="faceUp">얼굴 올리기</button><button class="chip" id="faceOff" hidden>내 얼굴 해제</button></div>
           <input type="file" id="faceFile" accept="image/png,image/webp,image/jpeg" hidden>
           <p id="faceNote" class="note">직접 그린 얼굴 업로드 기능, 반드시 템플릿을 다운 받아 규격에 맞게 그려주세요. 커스텀 얼굴 업로드시 색상 변경등 기본 커스텀 기능은 사용할 수 없습니다. 얇은 선으로 그리게 되면 뭉개질 수 있습니다.</p></div>
         <div class="card"><h3>폴리곤</h3><div class="chips" id="poly"></div></div>
@@ -147,26 +151,27 @@
 
       <section class="pane" id="pane-pattern">
         <div class="card">
-          <h3>무늬 <small>여러 개 선택 · 각각 색 지정</small></h3>
+          <h3>무늬</h3>
           <div class="patgrid" id="patterns"></div>
-          <h4>색 동기화</h4><div class="chips" id="patSync"></div>
+          <div class="chips" id="patSync"></div>
         </div>
       </section>
 
       <section class="pane" id="pane-deco">
         <div class="grid2">
-          <div class="card"><h3>볼터치 · 의상</h3><div class="chips" id="toggles"></div><h4>의상 색</h4><div class="colors" id="c-shirt"></div></div>
-          <div class="card"><h3>점 <small>캐릭터 기준</small></h3><div class="chips" id="moles"></div><h4>점 색</h4><div class="colors" id="c-moleColor"></div></div>
-          <div class="card"><h3>안경</h3><div class="chips" id="glasses"></div><h4>안경 색</h4><div class="colors" id="c-glassesColor"></div></div>
-          <div class="card"><h3>리본</h3><div class="chips" id="ribbons"></div><h4>리본 색</h4><div class="colors" id="c-ribbonColor"></div></div>
+          <div class="card"><h3>볼터치</h3><div class="chips" id="toggles"></div><div id="blushOpts"><div class="chips" id="blushStyle"></div><div class="colors" id="c-blushColor"></div></div></div>
+          <div class="card"><h3>의상</h3><div class="chips" id="togglesShirt"></div><div id="shirtOpts"><div class="colors" id="c-shirt"></div></div></div>
+          <div class="card"><h3>점</h3><div class="chips" id="moles"></div><div class="colors" id="c-moleColor"></div></div>
+          <div class="card"><h3>안경</h3><div class="chips" id="glasses"></div><div class="colors" id="c-glassesColor"></div></div>
+          <div class="card"><h3>리본</h3><div class="chips" id="ribbons"></div><div class="colors" id="c-ribbonColor"></div></div>
         </div>
       </section>
 
       <section class="pane" id="pane-orn">
-        <div class="card"><h3>머리장식 <small>최대 2개</small></h3><div class="chips" id="headOrn"></div>
-          <h4 id="hc1">장식 색</h4><div class="colors" id="c-headOrnColor"></div>
-          <div id="hc2wrap" hidden><h4 id="hc2">장식 색 2</h4><div class="colors" id="c-headOrnColor2"></div></div></div>
-        <div class="card"><h3>등 장식</h3><div class="chips" id="backOrn"></div><h4>장식 색</h4><div class="colors" id="c-backOrnColor"></div></div>
+        <div class="card"><h3>머리장식</h3><div class="chips" id="headOrn"></div>
+          <h4 id="hc1" hidden></h4><div class="colors" id="c-headOrnColor"></div>
+          <div id="hc2wrap" hidden><h4 id="hc2" hidden></h4><div class="colors" id="c-headOrnColor2"></div></div></div>
+        <div class="card"><h3>등 장식</h3><div class="chips" id="backOrn"></div><div class="colors" id="c-backOrnColor"></div></div>
       </section>
 
       <section class="pane" id="pane-save">
@@ -452,7 +457,8 @@ const HEAD_ORN = [['crown', '왕관'], ['sprout', '새싹'], ['plumbob', '다이
 const ORN_FLOAT = ['plumbob', 'heart', 'halo', 'star'];
 const LASH_OPTS = [[0, '없음'], [1, '1개'], [2, '2개']];
 const BACK_ORN =[['none', '없음'], ['angel', '천사 날개'], ['devil', '악마 날개']];
-const MOLES = [['eyeL', '왼쪽 눈 밑'], ['eyeR', '오른쪽 눈 밑'], ['mouthL', '왼쪽 입가'], ['mouthR', '오른쪽 입가']];
+const BLUSH_STYLES = [['round', '기본'], ['hatch', '빗금']];
+const MOLES =[['eyeL', '왼쪽 눈 밑'], ['eyeR', '오른쪽 눈 밑'], ['mouthL', '왼쪽 입가'], ['mouthR', '오른쪽 입가']];
 const GLASSES = [['none', '없음'], ['round', '동글'], ['square', '사각'], ['oval', '타원'], ['cat', '캣아이']];
 const RIBBONS = [['neck', '리본']];
 const POLY = { 1: { w: 18, h: 11, f: 0.85, tw: 12, th: 8 }, 2: { w: 30, h: 18, f: 0.45, tw: 18, th: 12 } };
@@ -461,6 +467,7 @@ const POLY_OPTS = [[1, '각지게'], [2, '보통']];
 const SW = {
   body: ['#f6f1e8', '#e8883a', '#9a6a42', '#9ba1ab', '#e8b0b8'],
   eye: ['#2a2226', '#2b4a7a', '#1d5a4a', '#7a2a3a', '#d9a43a'],
+  blushColor: ['#ff9fb0', '#ff8a8a', '#f4a6c8', '#ffb27a', '#e86a8a'],
   shirt: ['#f2f2f2', '#6a8fd6', '#d94a4a', '#4aa86a', '#2f3038'],
   moleColor: ['#4a3328', '#2a2226', '#7a4a3a'],
   glassesColor: ['#c0392b', '#2a2226', '#d9a43a', '#3a6fb8', '#f2f2f2'],
@@ -472,7 +479,7 @@ const SW = {
 const freshState = () => {
   const st = {
     species: 'dog', body: SPECIES.dog.body, eye: SPECIES.dog.eye,
-    patterns: {}, patternSync: false, blush: true, shirtOn: false, shirt: '#6a8fd6', outline: true,
+    patterns: {}, patternSync: false, blush: true, blushStyle: 'round', blushColor: '#ff9fb0', shirtOn: false, shirt: '#6a8fd6', outline: true,
     moles: { eyeL: false, eyeR: false, mouthL: false, mouthR: false }, moleColor: '#4a3328',
     glasses: 'none', glassesColor: '#c0392b',
     ribbons: { neck: false }, ribbonColor: '#e0507a',
@@ -1060,7 +1067,7 @@ function paintHead(s, plane = false) {
   const R = plane ? FACE_PLANE : HEADR, img = new ImageData(R.w, R.h), px = img.data, { dx, dy, dz } = plane ? PLANE_DIR : HEAD_DIR;
   const cf = !plane && s.customFace ? s.customFace : null;
   const sp = SPECIES[s.species];
-  const body = h2r(s.body), eye = h2r(s.eye), dark = h2r('#3b2a2e'), lid = h2r('#2b2226'), blush = h2r('#ff9fb0'), mole = h2r(s.moleColor), white = [255, 255, 255];
+  const body = h2r(s.body), eye = h2r(s.eye), dark = h2r('#3b2a2e'), lid = h2r('#2b2226'), blush = h2r(s.blushColor), mole = h2r(s.moleColor), white = [255, 255, 255];
   const pat = id => (s.patterns[id].on ? h2r(s.patterns[id].color) : null);
   const P = { forehead: pat('forehead'), stripes: pat('stripes'), eyepatchL: pat('eyepatchL'), eyepatchR: pat('eyepatchR'), muzzle: pat('muzzle') };
   const EX = 0.40, EY = -0.12;                                  // 눈 중심(얼굴 평면 좌표)
@@ -1196,7 +1203,12 @@ function paintHead(s, plane = false) {
     if (z > 0.35) {
       if (!plane) {
         // 볼터치: 그라데이션 없이 또렷한 경계의 단색(셀 채색)
-        if (s.blush) for (const sx of [1, -1]) over(blush, aa(ellSD(x, y, sx * 0.64, -0.40, 0.17, 0.095)));
+        if (s.blush) for (const sx of [1, -1]) {
+          const bx = sx * 0.64, by = -0.40;
+          if (s.blushStyle === 'hatch') {   // 빗금: 같은 방향으로 기운 짧은 선 세 개(/ / /). 양쪽 볼 모두 같은 방향
+            for (let k = -1; k <= 1; k++) over(blush, aa(capsule(x, y, bx + k * 0.065 - 0.028, by - 0.062, bx + k * 0.065 + 0.028, by + 0.062, 0.0125)));
+          } else over(blush, aa(ellSD(x, y, bx, by, 0.17, 0.095)));
+        }
         // 점은 이전 크기의 30%(반지름 0.032→0.0096). 작아서 경계 번짐도 같이 줄인다
         const aam = sd => 1 - sstep(-0.0035, 0.0035, sd);
         if (s.moles.eyeL) over(mole, aam(Math.hypot(x - 0.44, y + 0.36) - 0.0096));
@@ -1539,7 +1551,7 @@ function fitCamera(dir) {
   current.geo.computeBoundingBox();
   const bb = current.geo.boundingBox, size = bb.getSize(new V3()), c = bb.getCenter(new V3());
   const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-  const d = (Math.max((size.y / 2) / t, (size.x / 2) / (t * camera.aspect)) + size.z / 2) * 1.32;   // 아래쪽 버튼 막대에 가려지지 않게 여백
+  const d = (Math.max((size.y / 2) / t, (size.x / 2) / (t * camera.aspect)) + size.z / 2) * 2.0;   // 처음 화면에서 캐릭터가 미리보기 높이의 약 절반(사용자가 정한 크기). 아래 버튼 막대에도 가려지지 않는다
   const v = dir ? dir.clone() : camera.position.clone().sub(controls.target);
   if (v.lengthSq() < 1e-6) v.set(0.12, 0.06, 1);
   v.normalize();
@@ -1675,7 +1687,7 @@ function renderUI() {
   };
   ps.appendChild(sb);
 
-  for (const [elId, list] of [['toggles', [['blush', '볼터치'], ['shirtOn', '옷 입히기']]], ['toggles2', [['outline', '외곽선'], ['faceAnim', '페이스 애니']]]]) {
+  for (const [elId, list] of [['toggles', [['blush', '볼터치']]], ['togglesShirt', [['shirtOn', '옷 입히기']]], ['toggles2', [['outline', '외곽선'], ['faceAnim', '페이스 애니']]]]) {
     const te = $(elId); te.innerHTML = '';
     for (const [key, label] of list) {
       const b = document.createElement('button');
@@ -1690,6 +1702,10 @@ function renderUI() {
       te.appendChild(b);
     }
   }
+  $('shirtOpts').hidden = !state.shirtOn;   // 옷 입히기를 끄면 의상 색 설정도 숨긴다
+  $('blushOpts').hidden = !state.blush;   // 볼터치를 끄면 모양·색 설정도 숨긴다
+  chipRow('blushStyle', BLUSH_STYLES, id => state.blushStyle === id, id => { state.blushStyle = id; });
+  colorRow('c-blushColor', () => state.blushColor, v => { state.blushColor = v; }, SW.blushColor);
   colorRow('c-shirt', () => state.shirt, v => { state.shirt = v; }, SW.shirt);
   toggleRow('moles', MOLES, state.moles);
   colorRow('c-moleColor', () => state.moleColor, v => { state.moleColor = v; }, SW.moleColor);
@@ -1712,8 +1728,9 @@ function renderUI() {
     ho.appendChild(b);
   }
   const nm = id => (HEAD_ORN.find(o => o[0] === id) || [0, ''])[1], two = state.headOrns.length === 2;
-  $('hc1').textContent = two ? `장식 색 1 (${nm(state.headOrns[0])})` : '장식 색';
-  $('hc2').textContent = two ? `장식 색 2 (${nm(state.headOrns[1])})` : '장식 색 2';
+  // 장식이 하나면 색 줄만 보이고, 둘이면 어느 장식의 색인지 이름만 붙인다
+  $('hc1').hidden = !two; $('hc2').hidden = !two;
+  $('hc1').textContent = nm(state.headOrns[0]); $('hc2').textContent = nm(state.headOrns[1]);
   $('hc2wrap').hidden = !two;
   colorRow('c-headOrnColor', () => state.headOrnColors[0], v => { state.headOrnColors[0] = v; }, SW.headOrnColor);
   colorRow('c-headOrnColor2', () => state.headOrnColors[1], v => { state.headOrnColors[1] = v; }, SW.headOrnColor);
