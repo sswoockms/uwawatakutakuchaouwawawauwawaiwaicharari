@@ -14,94 +14,101 @@
 }
 </script>
 <style>
-  /* 디자인 토큰: RewampUI 스타일 — 밝은 바탕, 라벤더 포인트, 큰 둥근 모서리, 알약형 버튼, 가벼운 그림자 */
+  /* 색: Radix UI Colors v3 (slate = 회색, teal = 터키색). 용도는 Radix 규정을 따른다.
+     1 앱 배경 / 2 은은한 배경 / 3-5 컴포넌트 배경(기본, 호버, 눌림) / 6 은은한 경계선 / 7 상호작용 요소 경계선 /
+     9-10 단색 배경 / 11 보조 텍스트 / 12 본문 텍스트 */
   :root {
-    --bg:#f6f6f8; --card:#ffffff; --ink:#4a4a52; --strong:#2b2b32; --muted:#9a9aa4; --line:rgba(40,40,60,.09);
-    --soft:#f1f1f5; --accent:#8f7bc2; --accent-ink:#fff; --accent-strong:#6f5ba3; --accent-soft:#eee9f8; --dark:#62626a;
-    --shadow:0 8px 28px rgba(50,40,80,.07); --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --slate-1:#fcfcfd; --slate-2:#f9f9fb; --slate-3:#f0f0f3; --slate-4:#e8e8ec; --slate-5:#e0e1e6; --slate-6:#d9d9e0;
+    --slate-7:#cdced6; --slate-8:#b9bbc6; --slate-9:#8b8d98; --slate-10:#80838d; --slate-11:#60646c; --slate-12:#1c2024;
+    --teal-1:#fafefd; --teal-2:#f3fbf9; --teal-3:#e0f8f3; --teal-4:#ccf3ea; --teal-5:#b8eae0; --teal-6:#a1ded2;
+    --teal-7:#83cdc1; --teal-8:#53b9ab; --teal-9:#12a594; --teal-10:#0d9b8a; --teal-11:#008573; --teal-12:#0d3d38;
+    /* 컬러 피커 모듈이 쓰는 변수 */
+    --accent:var(--teal-9); --accent-ink:#fff; --accent-strong:var(--teal-11);
+    /* 글자 크기는 12 / 14 / 20 세 가지만 쓴다 */
+    --fs-sm:12px; --fs-md:14px; --fs-lg:20px;
+    /* 모서리: 바깥 컨테이너 12px, 안쪽 요소 8px(= 12px − 안쪽 여백 4px) */
+    --r-out:12px; --r-in:8px; --line:.5px solid var(--slate-6); --line-ui:.5px solid var(--slate-7);
+    --ease:250ms ease-out;
   }
   * { box-sizing:border-box; }
-  html,body { margin:0; height:100%; background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif; }
-  button { font-family:inherit; }
+  html,body { margin:0; height:100%; overflow:hidden; background:var(--slate-1); color:var(--slate-12); font:400 var(--fs-md)/1.4 system-ui,-apple-system,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif; }
+  button { font:inherit; color:inherit; }
+  [hidden] { display:none !important; }
   /* 화면 전체를 고정: 미리보기(왼쪽)는 움직이지 않고, 오른쪽 설정창 안쪽만 스크롤된다 */
-  html,body { overflow:hidden; }
-  #app { display:grid; grid-template-columns:minmax(0,1fr) 580px; grid-template-rows:minmax(0,1fr); height:100vh; height:100dvh; overflow:hidden; }
+  #app { display:grid; grid-template-columns:minmax(0,1fr) 560px; grid-template-rows:minmax(0,1fr); height:100vh; height:100dvh; overflow:hidden; }
 
   /* 미리보기 */
-  #view { position:relative; min-height:0; min-width:0; background:radial-gradient(120% 90% at 50% 20%, #ffffff 0%, #eeedf3 100%); overflow:hidden; }
+  #view { position:relative; min-height:0; min-width:0; background:var(--slate-2); overflow:hidden; }
   #view canvas { position:absolute; inset:0; display:block; width:100%; height:100%; }
-  #hint { position:absolute; left:20px; top:16px; font:11px var(--mono); color:var(--muted); pointer-events:none; }
-  #viewbar { position:absolute; left:50%; bottom:18px; transform:translateX(-50%); display:flex; gap:6px; padding:6px; background:rgba(255,255,255,.88); backdrop-filter:blur(8px); border:1px solid var(--line); border-radius:999px; box-shadow:var(--shadow); }
-  .pill { border:0; background:transparent; color:var(--ink); font-size:13px; font-weight:600; padding:8px 14px; border-radius:999px; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:6px; }
-  .pill:hover { background:var(--soft); }
-  .pill.on, .pill:has(input:checked) { background:var(--accent-soft); color:var(--accent-strong); }
+  #viewbar { position:absolute; left:50%; bottom:16px; transform:translateX(-50%); display:flex; gap:4px; padding:4px; background:var(--slate-1); border:var(--line); border-radius:var(--r-out); }
+  .pill { border:0; background:transparent; color:var(--slate-11); font-weight:500; padding:8px 12px; border-radius:var(--r-in); cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; transition:background-color var(--ease), color var(--ease); }
+  .pill:hover { background:var(--slate-3); color:var(--slate-12); }
+  .pill:has(input:checked) { background:var(--teal-3); color:var(--teal-11); }
   .pill input { display:none; }
 
-  /* 설정 패널 */
-  #panel { display:flex; flex-direction:column; height:100%; min-height:0; overflow:hidden; background:var(--bg); border-left:1px solid var(--line); min-width:0; }
-  .head { padding:18px 22px 10px; display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
-  .brand { font-size:19px; font-weight:800; color:var(--strong); letter-spacing:-.01em; }
-  .brand span { color:var(--accent); }
-  .tag { font:11px var(--mono); color:var(--muted); }
-  .tabs { display:grid; grid-template-columns:repeat(6,1fr); gap:4px; margin:6px 22px 4px; padding:4px; background:#ececf1; border-radius:999px; }
-  .tab { border:0; background:transparent; padding:10px 4px; border-radius:999px; font-size:13px; font-weight:700; color:var(--muted); cursor:pointer; }
-  .tab:hover { color:var(--ink); }
-  .tab.on { background:#fff; color:var(--strong); box-shadow:0 2px 8px rgba(50,40,80,.12); }
-  .panes { flex:1; min-height:0; overflow-y:auto; padding:14px 22px 18px; }
+  /* 설정 패널: 머리말, 탭, 본문, 하단 버튼의 좌우 여백을 모두 16px로 맞춘다 */
+  #panel { display:flex; flex-direction:column; height:100%; min-height:0; min-width:0; overflow:hidden; background:var(--slate-1); border-left:var(--line); }
+  .head { padding:16px 16px 12px; }
+  .brand { font-size:var(--fs-lg); font-weight:700; line-height:1.2; }
+  .brand span { color:var(--teal-11); }
+  .tabs { display:grid; grid-template-columns:repeat(6,1fr); gap:4px; margin:0 16px 12px; padding:4px; background:var(--slate-3); border-radius:var(--r-out); }
+  .tab { border:0; background:transparent; padding:8px 4px; border-radius:var(--r-in); font-weight:500; color:var(--slate-11); cursor:pointer; transition:background-color var(--ease), color var(--ease); }
+  .tab:hover { color:var(--slate-12); }
+  .tab.on { background:var(--slate-1); color:var(--slate-12); box-shadow:inset 0 0 0 .5px var(--slate-6); }
+  .panes { flex:1; min-height:0; overflow-y:auto; padding:0 16px 16px; }
   .pane { display:none; flex-direction:column; gap:12px; }
   .pane.on { display:flex; }
-  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:22px; padding:16px 16px 18px; box-shadow:var(--shadow); min-width:0; }
-  [hidden] { display:none !important; }
-  /* 카드 안 줄 사이 간격은 레이아웃이 맡는다(작은 보조 라벨 없이 칩 → 색 순서로 읽힌다) */
-  .card { display:flex; flex-direction:column; gap:10px; }
-  .card > h3 { margin-bottom:2px; }
-  #blushOpts, #shirtOpts, #lashUnderWrap, #hc2wrap { display:flex; flex-direction:column; gap:10px; }
-  .card h3 { margin:0 0 12px; font:600 11px var(--mono); letter-spacing:.06em; color:var(--muted); text-transform:uppercase; display:flex; align-items:center; justify-content:space-between; gap:8px; }
-  .card h4 { margin:14px 0 8px; font:600 11px var(--mono); letter-spacing:.06em; color:var(--muted); }
-  .card small { color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0; font-family:inherit; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:start; }
 
-  .chips { display:flex; flex-wrap:wrap; gap:6px; }
-  .chip { border:1px solid transparent; background:var(--soft); color:var(--ink); border-radius:999px; padding:9px 15px; font-size:13px; font-weight:600; cursor:pointer; transition:background .15s, color .15s; }
-  .chip:hover { background:#e8e8ee; }
-  .chip.on { background:var(--accent); color:var(--accent-ink); }
-  .species .chip { flex:1 1 calc(25% - 6px); text-align:center; padding:12px 6px; border-radius:16px; }
+  /* 카드: 줄 사이 간격은 레이아웃이 맡는다(보조 라벨 없이 선택 버튼, 색 순서로 읽힌다) */
+  .card { display:flex; flex-direction:column; gap:12px; min-width:0; padding:16px; background:var(--slate-2); border:var(--line); border-radius:var(--r-out); }
+  .card h3 { margin:0; font-size:var(--fs-md); font-weight:600; }
+  .card h4 { margin:0; font-size:var(--fs-sm); font-weight:500; color:var(--slate-11); }
+  #blushOpts, #shirtOpts, #ribbonOpts, #lashUnderWrap, #hc2wrap { display:flex; flex-direction:column; gap:12px; }
+
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { border:.5px solid transparent; background:var(--slate-3); color:var(--slate-12); border-radius:var(--r-in); padding:8px 12px; font-weight:500; cursor:pointer; transition:background-color var(--ease), color var(--ease); }
+  .chip:hover { background:var(--slate-4); }
+  .chip.on { background:var(--teal-3); border-color:var(--teal-7); color:var(--teal-11); }
+  .chip.on:hover { background:var(--teal-4); }
+  .species .chip { flex:1 1 calc(25% - 8px); text-align:center; padding:8px 4px; }
   .colors { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-  .sw { width:30px; height:30px; border-radius:50%; border:1px solid rgba(0,0,0,.12); cursor:pointer; padding:0; transition:transform .12s; }
-  .sw:hover { transform:scale(1.08); }
-  .sw.on { outline:2px solid var(--accent); outline-offset:2px; }
-  input[type=color] { width:34px; height:34px; padding:0; border:1px solid var(--line); border-radius:50%; background:#fff; cursor:pointer; overflow:hidden; }
-  input[type=color]:disabled { opacity:.3; cursor:default; }
-  input[type=text] { width:100%; padding:11px 14px; border:1px solid var(--line); border-radius:14px; font-size:14px; background:#fff; color:var(--ink); }
-  input[type=text]:focus { outline:2px solid var(--accent-soft); border-color:var(--accent); }
+  .sw { width:28px; height:28px; border-radius:50%; border:var(--line-ui); cursor:pointer; padding:0; }
+  .sw.on { outline:2px solid var(--teal-9); outline-offset:2px; }
+  input[type=color] { width:28px; height:28px; padding:0; border:var(--line-ui); border-radius:50%; background:var(--slate-1); cursor:pointer; overflow:hidden; }
+  input[type=color]:disabled { opacity:.4; cursor:default; }
+  input[type=text] { width:100%; padding:8px 12px; border:var(--line-ui); border-radius:var(--r-in); font:inherit; background:var(--slate-1); color:var(--slate-12); }
+  input[type=text]:focus { outline:2px solid var(--teal-8); outline-offset:-1px; }
+  .slider { display:flex; align-items:center; gap:12px; font-size:var(--fs-sm); color:var(--slate-11); }
+  .slider input { flex:1; min-width:0; margin:0; accent-color:var(--teal-9); }
+  .slider output { min-width:36px; text-align:right; font-variant-numeric:tabular-nums; }
   .patgrid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .pat { display:flex; align-items:center; gap:8px; }
-  .pat .chip { flex:1; text-align:left; border-radius:16px; }
+  .pat .chip { flex:1; text-align:left; }
   .fields { display:flex; flex-direction:column; gap:8px; }
 
   /* 하단 고정 버튼 */
-  .actions { padding:12px 22px 18px; background:linear-gradient(180deg, rgba(246,246,248,0), var(--bg) 30%); }
-  #status { font:11px var(--mono); color:var(--muted); min-height:15px; margin-bottom:8px; white-space:pre-wrap; }
-  .btnrow { display:flex; gap:10px; }
-  .btn { border:0; border-radius:999px; padding:14px 20px; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; }
-  .btn.alt { flex:0 0 auto; background:var(--accent-soft); color:var(--accent-strong); }
-  .btn.main { flex:1; background:var(--dark); color:#fff; padding-right:10px; }
-  .btn.main i { width:30px; height:30px; border-radius:50%; background:var(--accent); display:grid; place-items:center; font-style:normal; font-size:15px; }
-  .btn:hover { filter:brightness(1.05); }
+  .actions { padding:12px 16px 16px; border-top:var(--line); background:var(--slate-1); }
+  #status { font-size:var(--fs-sm); color:var(--slate-11); min-height:17px; margin-bottom:8px; white-space:pre-wrap; }
+  .btnrow { display:flex; gap:8px; }
+  .btn { border:0; border-radius:var(--r-in); padding:12px 16px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background-color var(--ease); }
+  .btn.alt { flex:0 0 auto; background:var(--slate-3); color:var(--slate-12); }
+  .btn.alt:hover { background:var(--slate-4); }
+  .btn.main { flex:1; background:var(--teal-11); color:#fff; }
+  .btn.main:hover { background:var(--teal-12); }
   .btn:disabled { opacity:.6; cursor:wait; }
-  .note { margin:10px 0 0; font-size:12px; line-height:1.6; color:var(--muted); }
+  .note { margin:0; font-size:var(--fs-sm); line-height:1.5; color:var(--slate-11); }
   .locked { opacity:.4; pointer-events:none; }
-  #noticeBackdrop { position:fixed; inset:0; z-index:10000; display:grid; place-items:center; background:rgba(40,36,60,.35); }
-  #noticeBackdrop[hidden] { display:none; }
-  .notice { width:min(360px,calc(100vw - 40px)); background:#fff; border-radius:22px; padding:24px 22px 18px; box-shadow:var(--shadow); text-align:center; }
-  .notice p { margin:0 0 18px; font-size:15px; font-weight:600; line-height:1.55; color:var(--strong); }
-  details { font-size:13px; color:var(--muted); line-height:1.65; }
-  summary { cursor:pointer; color:var(--ink); font-weight:600; }
+  #noticeBackdrop { position:fixed; inset:0; z-index:10000; display:grid; place-items:center; background:rgba(28,32,36,.2); }
+  .notice { width:min(360px,calc(100vw - 32px)); background:var(--slate-1); border:var(--line); border-radius:var(--r-out); padding:16px; box-shadow:0 8px 24px rgba(28,32,36,.12); }
+  .notice p { margin:0 0 16px; font-weight:600; line-height:1.5; }
+  details { font-size:var(--fs-sm); color:var(--slate-11); line-height:1.5; }
+  summary { cursor:pointer; color:var(--slate-12); font-size:var(--fs-md); font-weight:600; }
+  details ol { margin:12px 0 0; padding-left:20px; }
 
   @media (max-width:980px) {
     #app { grid-template-columns:minmax(0,1fr); grid-template-rows:46vh minmax(0,1fr); grid-template-rows:46dvh minmax(0,1fr); }
-    #panel { border-left:0; border-top:1px solid var(--line); }
-    .tabs { margin-left:14px; margin-right:14px; }
+    #panel { border-left:0; border-top:var(--line); }
     .grid2 { grid-template-columns:1fr; }
   }
 </style>
@@ -118,14 +125,14 @@
   </main>
 
   <aside id="panel">
-    <div class="head"><div class="brand">로우폴리 동물 <span>VRM</span> 메이커</div><div class="tag">.vrm · Mate Engine</div></div>
+    <div class="head"><div class="brand">로우폴리 동물 <span>VRM</span> 메이커</div></div>
     <nav class="tabs" role="tablist" aria-label="설정 분야">
       <button class="tab on" role="tab" data-tab="animal">동물</button>
       <button class="tab" role="tab" data-tab="color">색상</button>
       <button class="tab" role="tab" data-tab="pattern">무늬</button>
       <button class="tab" role="tab" data-tab="deco">꾸미기</button>
       <button class="tab" role="tab" data-tab="orn">장식</button>
-      <button class="tab" role="tab" data-tab="save">저장·설정</button>
+      <button class="tab" role="tab" data-tab="save">저장</button>
     </nav>
 
     <div class="panes">
@@ -162,8 +169,12 @@
           <div class="card"><h3>볼터치</h3><div class="chips" id="toggles"></div><div id="blushOpts"><div class="chips" id="blushStyle"></div><div class="colors" id="c-blushColor"></div></div></div>
           <div class="card"><h3>의상</h3><div class="chips" id="togglesShirt"></div><div id="shirtOpts"><div class="colors" id="c-shirt"></div></div></div>
           <div class="card"><h3>점</h3><div class="chips" id="moles"></div><div class="colors" id="c-moleColor"></div></div>
-          <div class="card"><h3>안경</h3><div class="chips" id="glasses"></div><div class="colors" id="c-glassesColor"></div></div>
-          <div class="card"><h3>리본</h3><div class="chips" id="ribbons"></div><div class="colors" id="c-ribbonColor"></div></div>
+          <div class="card"><h3>안경</h3><div class="chips" id="glasses"></div>
+            <label class="slider" id="glassesSizeWrap"><span>크기</span><input type="range" id="glassesSize" min="70" max="110" step="5" aria-label="안경 크기"><output id="glassesSizeVal"></output></label>
+            <div class="colors" id="c-glassesColor"></div></div>
+          <div class="card"><h3>리본</h3><div class="chips" id="ribbons"></div>
+            <div id="ribbonOpts"><label class="slider"><span>크기</span><input type="range" id="ribbonSize" min="70" max="120" step="5" aria-label="리본 크기"><output id="ribbonSizeVal"></output></label>
+            <div class="colors" id="c-ribbonColor"></div></div></div>
         </div>
       </section>
 
@@ -184,7 +195,7 @@
         <div class="card"><h3>설정</h3><div class="chips" id="toggles2"></div></div>
         <div class="card"><details>
           <summary>Mate Engine에 적용하는 방법</summary>
-          <ol style="padding-left:18px;margin:10px 0 0">
+          <ol>
             <li>내보낸 .vrm 파일을 저장합니다.</li>
             <li>Mate Engine에서 아바타(모델) 불러오기 메뉴로 .vrm을 선택합니다. 메뉴 이름은 버전에 따라 다를 수 있습니다.</li>
             <li>표정 애니메이션은 설정에서 페이스 애니를 켠 경우에만 포함됩니다.</li>
@@ -198,7 +209,7 @@
       <div class="btnrow">
         <button class="btn alt" id="rand">랜덤</button>
         <button class="btn alt" id="reset">기본으로 되돌리기</button>
-        <button class="btn main" id="export">VRM 내보내기 <i aria-hidden="true">↓</i></button>
+        <button class="btn main" id="export">VRM 내보내기</button>
       </div>
     </div>
   </aside>
@@ -230,31 +241,31 @@
   };
   const CSS = `
   body.cp-open { overflow: hidden; }
-  .cp-backdrop { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(15,18,20,.32); backdrop-filter: blur(2px); }
+  .cp-backdrop { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(28,32,36,.2); }
   .cp-backdrop[hidden] { display: none !important; }
-  .cp-sheet { width: min(324px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto; background: #fff; border: 1px solid rgba(0,0,0,.09); border-radius: 4px; padding: 18px; box-shadow: 0 14px 38px rgba(0,0,0,.22); touch-action: manipulation; font-family: inherit; }
-  .cp-preview { height: 24px; border-radius: 3px; margin-bottom: 12px; border: 1px solid rgba(0,0,0,.08); background: #323232; }
+  .cp-sheet { width: min(324px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto; background: var(--slate-1); border: .5px solid var(--slate-6); border-radius: 12px; padding: 16px; box-shadow: 0 8px 24px rgba(28,32,36,.12); touch-action: manipulation; font-family: inherit; }
+  .cp-preview { height: 24px; border-radius: 8px; margin-bottom: 12px; border: .5px solid var(--slate-7); background: #323232; }
   .cp-sv-wrap { position: relative; width: 100%; aspect-ratio: 1.36 / 1; margin-bottom: 14px; touch-action: none; }
-  .cp-sv { width: 100%; height: 100%; display: block; border-radius: 4px; cursor: crosshair; touch-action: none; }
+  .cp-sv { width: 100%; height: 100%; display: block; border-radius: 8px; cursor: crosshair; touch-action: none; }
   .cp-knob { position: absolute; width: 22px; height: 22px; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0,0,0,.65), 0 1px 3px rgba(0,0,0,.35); transform: translate(-50%,-50%); pointer-events: none; }
   .cp-hue-wrap { position: relative; height: 14px; margin: 0 0 28px; touch-action: none; }
   .cp-hue { width: 100%; height: 14px; display: block; border-radius: 999px; cursor: pointer; touch-action: none; background: linear-gradient(90deg,#f00 0%,#ff0 16.66%,#0f0 33.33%,#0ff 50%,#00f 66.66%,#f0f 83.33%,#f00 100%); }
   .cp-hue-knob { position: absolute; top: 50%; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.48), 0 1px 3px rgba(0,0,0,.28); transform: translate(-50%,-50%); pointer-events: none; background: #f00; }
   .cp-recent { margin: 0 0 14px; }
   .cp-recent[hidden] { display: none !important; }
-  .cp-recent-label { font-size: 11px; color: #8a9199; margin-bottom: 7px; font-weight: 600; }
+  .cp-recent-label { font-size: 12px; color: var(--slate-11); margin-bottom: 8px; font-weight: 500; }
   .cp-recent-row { display: flex; gap: 8px; flex-wrap: wrap; }
-  .cp-recent-row button { width: 24px; height: 24px; min-height: 0; padding: 0; border-radius: 50%; border: 2px solid rgba(0,0,0,.08); cursor: pointer; }
-  .cp-recent-row button:hover { border-color: var(--accent, #14b8a6); }
+  .cp-recent-row button { width: 24px; height: 24px; min-height: 0; padding: 0; border-radius: 50%; border: .5px solid var(--slate-7); cursor: pointer; }
+  .cp-recent-row button:hover { border-color: var(--teal-9); }
   .cp-controls { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; align-items: center; }
-  .cp-hex { width: 100%; min-width: 0; height: 41px; padding: 8px 10px; border: 0; border-radius: 2px; background: #f0f1f2; color: #747980; font: 16px/1.2 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; text-transform: uppercase; box-sizing: border-box; }
-  .cp-hex:focus { outline: 2px solid rgba(20,184,166,.35); background: #f7f8f9; }
-  .cp-apply { height: 41px; min-height: 0; padding: 0 14px; border-radius: 2px; border: 0; background: var(--accent, #14b8a6); color: var(--accent-ink, #05201d); font: 700 14px inherit; cursor: pointer; }
-  .cp-apply:hover { filter: brightness(1.06); }
-  .cp-eye { width: 100%; min-height: 42px; margin-top: 10px; border-radius: 8px; border: 1px solid rgba(20,184,166,.45); background: rgba(20,184,166,.1); color: var(--accent-strong, #0d9488); display: flex; align-items: center; justify-content: center; gap: 8px; font: 600 15px inherit; cursor: pointer; }
+  .cp-hex { width: 100%; min-width: 0; height: 40px; padding: 8px 12px; border: 0; border-radius: 8px; background: var(--slate-3); color: var(--slate-12); font: 14px/1.2 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; text-transform: uppercase; box-sizing: border-box; }
+  .cp-hex:focus { outline: 2px solid var(--teal-8); outline-offset: -1px; }
+  .cp-apply { height: 40px; min-height: 0; padding: 0 16px; border-radius: 8px; border: 0; background: var(--teal-11); color: #fff; font-family: inherit; font-size: 14px; font-weight: 600; line-height: 1; cursor: pointer; }
+  .cp-apply:hover { background: var(--teal-12); }
+  .cp-eye { width: 100%; min-height: 40px; margin-top: 8px; border-radius: 8px; border: .5px solid var(--teal-7); background: var(--teal-3); color: var(--teal-11); display: flex; align-items: center; justify-content: center; gap: 8px; font-family: inherit; font-size: 14px; font-weight: 500; line-height: 1; cursor: pointer; }
   .cp-eye[hidden] { display: none !important; }
   .cp-sr { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0,0,0,0) !important; white-space: nowrap !important; border: 0 !important; }
-  @media (max-width: 600px) { .cp-backdrop { padding: 10px; } .cp-sheet { width: min(344px, calc(100vw - 20px)); padding: 16px; } }
+  @media (max-width: 600px) { .cp-backdrop { padding: 10px; } .cp-sheet { width: min(344px, calc(100vw - 20px)); } }
   `;
   const HTML = `
   <section class="cp-sheet" role="dialog" aria-modal="true">
@@ -460,7 +471,7 @@ const BACK_ORN =[['none', '없음'], ['angel', '천사 날개'], ['devil', '악�
 const BLUSH_STYLES = [['round', '기본'], ['hatch', '빗금']];
 const MOLES =[['eyeL', '왼쪽 눈 밑'], ['eyeR', '오른쪽 눈 밑'], ['mouthL', '왼쪽 입가'], ['mouthR', '오른쪽 입가']];
 const GLASSES = [['none', '없음'], ['round', '동글'], ['square', '사각'], ['oval', '타원'], ['cat', '캣아이']];
-const RIBBONS = [['neck', '리본']];
+const RIBBON_TYPES = [['none', '없음'], ['basic', '기본'], ['butterfly', '나비리본']];
 const POLY = { 1: { w: 18, h: 11, f: 0.85, tw: 12, th: 8 }, 2: { w: 30, h: 18, f: 0.45, tw: 18, th: 12 } };
 const POLY_OPTS = [[1, '각지게'], [2, '보통']];
 // 프리셋 색은 5가지로 줄였다(그 밖의 색은 오른쪽 색 선택 버튼으로 직접 지정)
@@ -481,8 +492,8 @@ const freshState = () => {
     species: 'dog', body: SPECIES.dog.body, eye: SPECIES.dog.eye,
     patterns: {}, patternSync: false, blush: true, blushStyle: 'round', blushColor: '#ff9fb0', shirtOn: false, shirt: '#6a8fd6', outline: true,
     moles: { eyeL: false, eyeR: false, mouthL: false, mouthR: false }, moleColor: '#4a3328',
-    glasses: 'none', glassesColor: '#c0392b',
-    ribbons: { neck: false }, ribbonColor: '#e0507a',
+    glasses: 'none', glassesColor: '#c0392b', glassesSize: 1,
+    ribbon: 'none', ribbonSize: 1, ribbonColor: '#e0507a',
     headOrns: [], headOrnColors: ['#f2c14e', '#e0507a'], backOrn: 'none', backOrnColor: '#ffffff',
     eyeFam: 'moe', eyeVar: 'normal', lashTop: 0, lashUnder: 0, mouth: 'closed',
     faceAnim: false,       // 페이스 애니(눈 깜빡임 표정을 VRM에 넣기). 기본 OFF
@@ -993,8 +1004,8 @@ function buildParts(s) {
       // 코 쪽(안쪽) 점에서 시작해 한 바퀴 돌아 같은 점으로 닫히는 렌즈 테
       const t0 = sx === 1 ? Math.PI : 0;
       const ring = Array.from({ length: N + 1 }, (_, i) => {
-        const [x, y] = shape((i / N) * Math.PI * 2 + t0, sx);
-        return surfPt(sx * lensCX + x, lensCY + y);
+        const [x, y] = shape((i / N) * Math.PI * 2 + t0, sx), g = s.glassesSize;   // 렌즈 중심은 그대로 두고 크기만 조절
+        return surfPt(sx * lensCX + x * g, lensCY + y * g);
       });
       ring[N] = ring[0].clone();
       add('glasses', tubeGeo(ring, Array(N + 1).fill(R), SEG), 'glasses', fixedW('head'));
@@ -1007,19 +1018,52 @@ function buildParts(s) {
   }
 
   // 리본 ----------------------------------------------------------
-  const bow = (P, n, { roll = 0, k = 1, w = fixedW('head') } = {}) => {
-    const wing = sg => T(blob([sg * 0.055 * k, 0, 0], [0.06 * k, 0.042 * k, 0.022 * k], 12, 8, [0, 0, sg * 0.3]), [0, 0, 0]);
-    const g1 = facing(wing(1), P.clone().addScaledVector(n, 0.012), n, roll);
-    const g2 = facing(wing(-1), P.clone().addScaledVector(n, 0.012), n, roll);
-    const knot = facing(blob([0, 0, 0], [0.026 * k, 0.026 * k, 0.024 * k], 10, 7), P.clone().addScaledVector(n, 0.016), n, roll);
-    [g1, g2, knot].forEach(g => add('ribbon', g, 'ribbon', w));
+  // 리본 두 종류. 날개는 매듭에서 바깥으로 갈수록 넓어지는 부채꼴이고, 바깥 끝은 둥글지 않게 거의 평평하다.
+  //  기본: 날개 두 장 + 매듭 / 나비리본: 더 큰 날개 + 매듭 아래로 내려오는 리본 꼬리 두 갈래(끝이 제비꼬리 모양)
+  // rc = 날개 바깥 모서리의 둥근 정도(기본은 약간 둥글게, 나비리본은 그보다 덜 둥글게 하되 각지지는 않게)
+  const BOW = {
+    basic:     { hx: 0.080, hy: 0.047, rc: 0.024, notch: false },
+    butterfly: { hx: 0.092, hy: 0.052, rc: 0.012, notch: true },
   };
-  const rd = (x, y, z, o) => { const d = dir(x, y, z); return [ellP(d), ellN(d)]; };
-  // 목 리본: 턱이 아니라 몸통 앞면, 얼굴 바로 아래에 붙는 작은 나비넥타이
-  if (s.ribbons.neck) {
-    const y = 0.262, dy = Math.abs(y - (s.shirtOn ? 0.2 : TC.y)) / (s.shirtOn ? 0.15 : TH[1]);
+  const wingShape2 = (b, sg) => {   // 오른쪽 날개(+x). 안쪽은 좁고 바깥으로 넓어지며, 바깥 모서리는 rc 만큼 둥글다
+    const sh = new THREE.Shape(), x = v => v * sg, { hx, hy, rc } = b, rr = rc * 1.3;
+    sh.moveTo(x(0.008), hy * 0.34);
+    sh.quadraticCurveTo(x(hx * 0.42), hy * 0.98, x(hx - rc), hy);      // 윗 변: 매듭에서 바깥으로 볼록하게 퍼져 나간다(안쪽으로 파이지 않는다)
+    sh.quadraticCurveTo(x(hx), hy, x(hx), hy - rr);                    // 윗 모서리
+    sh.quadraticCurveTo(x(hx * 1.06), 0, x(hx), -hy + rr);             // 바깥 변(살짝 볼록)
+    sh.quadraticCurveTo(x(hx), -hy, x(hx - rc), -hy);                  // 아랫 모서리
+    sh.quadraticCurveTo(x(hx * 0.42), -hy * 0.98, x(0.008), -hy * 0.34);
+    sh.closePath();
+    return sh;
+  };
+  const tailShape = sg => {   // 매듭 아래로 바깥쪽으로 벌어지며 내려오는 꼬리. 끝은 V자로 파인다
+    const sh = new THREE.Shape(), x = v => v * sg;
+    sh.moveTo(x(0.002), 0); sh.lineTo(x(0.034), 0); sh.lineTo(x(0.07), -0.098);   // 매듭 뒤(가운데)에서 시작해 아래 바깥쪽으로
+    sh.lineTo(x(0.05), -0.082); sh.lineTo(x(0.03), -0.098); sh.closePath();
+    return sh;
+  };
+  const roundRect = (hw, hh, r) => {
+    const sh = new THREE.Shape();
+    sh.moveTo(-hw + r, -hh); sh.lineTo(hw - r, -hh); sh.quadraticCurveTo(hw, -hh, hw, -hh + r); sh.lineTo(hw, hh - r);
+    sh.quadraticCurveTo(hw, hh, hw - r, hh); sh.lineTo(-hw + r, hh); sh.quadraticCurveTo(-hw, hh, -hw, hh - r);
+    sh.lineTo(-hw, -hh + r); sh.quadraticCurveTo(-hw, -hh, -hw + r, -hh); return sh;
+  };
+  const bow = (P, n, kind, k, w) => {
+    const b = BOW[kind], at = (g, off) => { T(g, [0, 0, 0], [0, 0, 0], [k, k, k]); return facing(g, P.clone().addScaledVector(n, off), n, 0); };
+    const parts2 = [];
+    for (const sg of [1, -1]) {
+      // 앞뒤 순서(몸통 표면에서 바깥으로): 꼬리(뒤) → 날개 → 매듭(앞). 서로 겹쳐 파고들지 않도록 두께 구간을 나눈다.
+      if (b.notch) parts2.push(at(shapeGeo(tailShape(sg), 0.006, 0.003), 0.002));
+      parts2.push(at(shapeGeo(wingShape2(b, sg), 0.012, 0.004), 0.020));
+    }
+    parts2.push(at(shapeGeo(roundRect(0.014, 0.026, 0.009), 0.016, 0.005), 0.026));   // 매듭: 두 종류 모두 같은 모양, 모서리가 부드럽고 날개보다 조금만 튀어나온다
+    parts2.forEach(g => add('ribbon', g, 'ribbon', w));
+  };
+  // 목 리본: 얼굴 바로 아래 목 높이(날개 윗끝이 머리 아래면 직전)에 붙는다. 크게 하면 머리에 닿지 않도록 그만큼 내려온다.
+  if (s.ribbon !== 'none') {
+    const b = BOW[s.ribbon], k = s.ribbonSize, y = Math.min(0.292, 0.316 - b.hy * k), dy = Math.abs(y - (s.shirtOn ? 0.2 : TC.y)) / (s.shirtOn ? 0.15 : TH[1]);
     const zs = (s.shirtOn ? TH[2] + 0.02 : TH[2]) * Math.pow(Math.max(0.001, 1 - Math.pow(dy, TN)), 1 / TN);
-    bow(new V3(0, y, zs + 0.006), new V3(0, 0.12, 1).normalize(), { k: 0.8, w: fixedW('chest') });
+    bow(new V3(0, y, zs + 0.006), new V3(0, 0.12, 1).normalize(), s.ribbon, k, fixedW('chest'));
   }
 
   // 머리 위 장식 / 등 장식 -------------------------------------------
@@ -1542,7 +1586,7 @@ controls.enableDamping = true;
 controls.autoRotate = false; controls.autoRotateSpeed = 2.0;   // 자동 회전 기본 OFF
 controls.enablePan = false;   // 이동 없이 회전·확대만: 항상 전신이 가운데에 보이도록
 controls.update();
-scene.add(new THREE.GridHelper(2, 20, 0xd0cde0, 0xe4e2ee));
+scene.add(new THREE.GridHelper(2, 20, 0xd9d9e0, 0xe8e8ec)   /* Radix slate-6, slate-4 */);
 
 let current = null, pending = false, lastFitH = 0;
 // 캐릭터 전신(귀 끝~발바닥)이 미리보기에 모두 들어오도록 카메라 거리를 맞춘다. 보는 방향은 유지.
@@ -1657,7 +1701,7 @@ function renderUI() {
   const pe = $('patterns'); pe.innerHTML = '';
   for (const [pid, label] of PATTERNS) {
     const st = state.patterns[pid];
-    const row = document.createElement('div'); row.className = 'pat'; row.style.marginBottom = '6px';
+    const row = document.createElement('div'); row.className = 'pat';
     const b = document.createElement('button');
     b.className = 'chip' + (st.on ? ' on' : ''); b.textContent = label;
     b.onclick = () => { st.on = !st.on; redraw(); };
@@ -1710,8 +1754,12 @@ function renderUI() {
   toggleRow('moles', MOLES, state.moles);
   colorRow('c-moleColor', () => state.moleColor, v => { state.moleColor = v; }, SW.moleColor);
   chipRow('glasses', GLASSES, id => state.glasses === id, id => { state.glasses = id; });
+  $('glassesSizeWrap').hidden = state.glasses === 'none';   // 안경이 있을 때만 크기 조절이 나타난다
+  $('glassesSize').value = Math.round(state.glassesSize * 100); $('glassesSizeVal').textContent = Math.round(state.glassesSize * 100) + '%';
   colorRow('c-glassesColor', () => state.glassesColor, v => { state.glassesColor = v; }, SW.glassesColor);
-  toggleRow('ribbons', RIBBONS, state.ribbons);
+  chipRow('ribbons', RIBBON_TYPES, id => state.ribbon === id, id => { state.ribbon = id; });
+  $('ribbonOpts').hidden = state.ribbon === 'none';   // 리본이 있을 때만 크기와 색이 나타난다
+  $('ribbonSize').value = Math.round(state.ribbonSize * 100); $('ribbonSizeVal').textContent = Math.round(state.ribbonSize * 100) + '%';
   colorRow('c-ribbonColor', () => state.ribbonColor, v => { state.ribbonColor = v; }, SW.ribbonColor);
   chipRow('poly', POLY_OPTS, id => state.poly === id, id => { state.poly = id; });
   // 머리 위 장식: 최대 2개. 2개가 되면 나머지 칩은 눌리지 않고, 두 번째 장식 색이 나타난다.
@@ -1780,6 +1828,12 @@ function downloadTemplate(kind) {
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }, 'image/png');
 }
+$('glassesSize').oninput = e => {   // 끌어서 조절하는 동안에는 패널을 다시 그리지 않고 모델만 갱신한다
+  state.glassesSize = e.target.value / 100; $('glassesSizeVal').textContent = e.target.value + '%'; rebuildSoon();
+};
+$('ribbonSize').oninput = e => {
+  state.ribbonSize = e.target.value / 100; $('ribbonSizeVal').textContent = e.target.value + '%'; rebuildSoon();
+};
 $('tplBasic').onclick = () => downloadTemplate('basic');
 $('tplMoe').onclick = () => downloadTemplate('moe');
 $('faceUp').onclick = () => $('faceFile').click();
@@ -1798,11 +1852,11 @@ $('faceFile').onchange = async e => {
     for (let i = 0; i < d.length; i += 4) { const a = d[i + 3] / 255; pm[i] = d[i] * a; pm[i + 1] = d[i + 1] * a; pm[i + 2] = d[i + 2] * a; pm[i + 3] = a; }
     state.customFace = { name: f.name, pm };
     if (state.faceAnim) { state.faceAnim = false; showNotice('직접 업로드한 얼굴은 페이스 애니를 설정할 수 없습니다. 페이스 애니를 껐습니다.'); }
-    $('status').textContent = `내 얼굴 적용: ${f.name}` + (Math.abs(bmp.width / bmp.height - 2) > 0.02 ? '\n※ 가로:세로가 2:1이 아니어서 그림이 늘어나 보일 수 있어요.' : '');
+    $('status').textContent = `내 얼굴 적용: ${f.name}` + (Math.abs(bmp.width / bmp.height - 2) > 0.02 ? '\n가로 세로 비율이 2:1이 아니어서 그림이 늘어날 수 있습니다.' : '');
     redraw();
-  } catch (err) { $('status').textContent = '그림을 읽지 못했어요. PNG·WebP·JPG 파일을 올려 주세요.'; }
+  } catch (err) { $('status').textContent = '그림을 읽지 못했습니다. PNG, WebP, JPG 파일을 올려 주세요.'; }
 };
-$('reset').onclick = () => { resetState(); $('spin').checked = false; controls.autoRotate = false; redraw(); $('status').textContent = '모든 설정을 처음 상태로 되돌렸어요.'; };
+$('reset').onclick = () => { resetState(); $('spin').checked = false; controls.autoRotate = false; redraw(); $('status').textContent = '모든 설정을 처음 상태로 되돌렸습니다.'; };
 const pick = a => a[Math.floor(Math.random() * a.length)];
 $('rand').onclick = () => {
   applySpecies(pick(SPECIES_ORDER));
@@ -1810,7 +1864,7 @@ $('rand').onclick = () => {
   for (const [pid] of PATTERNS) state.patterns[pid].on = Math.random() < 0.2;
   state.blush = Math.random() < 0.7; state.shirtOn = Math.random() < 0.4; state.shirt = pick(SW.shirt);
   state.glasses = pick(GLASSES)[0]; state.glassesColor = pick(SW.glassesColor);
-  for (const [k] of RIBBONS) state.ribbons[k] = Math.random() < 0.15;
+  state.ribbon = Math.random() < 0.15 ? pick(['basic', 'butterfly']) : 'none';
   state.ribbonColor = pick(SW.ribbonColor);
   redraw();
 };
