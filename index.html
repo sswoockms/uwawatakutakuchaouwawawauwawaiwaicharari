@@ -945,7 +945,14 @@ function buildParts(s) {
   if (s.shirtOn) {
     add('shirt', superGeo([0, 0.2, 0], [TH[0] + 0.022, 0.15, TH[2] + 0.02], TN, pl.tw, pl.th), 'shirt', torsoW);
     for (const [sx, side] of [[1, 'left'], [-1, 'right']]) {
-      add('shirt', tear(sx * 0.205, 0.27, 0.13, 0.1, 0.09, sx), 'shirt', armW(side));
+      // 소매도 팔과 똑같이 몸통 쪽 절반을 늘여 묻는다(그러지 않으면 팔 윗부분이 소매·옷 밖으로 드러난다)
+      // 소매 끝은 둥글게 좁아지게 두지 않고 x=0.262에서 평평하게 잘라 소맷단으로 만든다(팔 표면과 비스듬히 겹쳐 폴리곤이 뾰족하게 깨지던 것을 막는다)
+      const sl = tear(sx * 0.22, 0.27, 0.18, 0.108, 0.096, sx), sp2 = sl.attributes.position;
+      for (let k = 0; k < sp2.count; k++) {
+        const d = (sp2.getX(k) - sx * 0.22) * sx;
+        sp2.setX(k, sx * Math.min(0.262, d < 0 ? 0.22 + d * 1.8 : 0.22 + d));
+      }
+      add('shirt', sl, 'shirt', armW(side));
     }
   }
 
